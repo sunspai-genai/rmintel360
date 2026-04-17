@@ -1,0 +1,2 @@
+"""Governed chart generation services."""
+

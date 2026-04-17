@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Governed Commercial Banking Analytics Assistant</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
+    <script src="/assets/app.js" defer></script>
+  </head>
+  <body>
+    <main class="chat-shell">
+      <header class="chat-header">
+        <div>
+          <p>Commercial Banking Analytics</p>
+          <h1>Governed Assistant</h1>
+        </div>
+        <div id="healthStatus" class="health">Checking</div>
+      </header>
+
+      <section id="messages" class="messages" aria-live="polite" aria-label="Chat conversation"></section>
+
+      <form id="chatForm" class="composer">
+        <label class="sr-only" for="messageInput">Message</label>
+        <textarea
+          id="messageInput"
+          rows="2"
+          placeholder="Ask a banking data question, request SQL-backed analysis, or ask for a chart"
+          required
+        ></textarea>
+        <button id="sendButton" type="submit">Send</button>
+      </form>
+    </main>
+  </body>
+</html>

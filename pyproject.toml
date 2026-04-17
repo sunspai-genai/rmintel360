@@ -1,0 +1,30 @@
+[project]
+name = "governed-commercial-banking-assistant"
+version = "0.1.0"
+description = "MVP governed commercial banking analytics assistant using FastAPI, LangChain, LangGraph, and DuckDB."
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "duckdb>=1.1.0",
+    "pydantic>=2.8.0",
+    "pydantic-settings>=2.4.0",
+    "python-dotenv>=1.0.1",
+    "langchain>=0.3.0",
+    "langgraph>=0.2.0",
+    "langchain-community>=0.3.0",
+    "chromadb>=0.5.0",
+    "sqlglot>=25.0.0",
+    "plotly>=5.24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "httpx>=0.27.0",
+    "ruff>=0.6.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/app/tests"]
+pythonpath = ["."]
