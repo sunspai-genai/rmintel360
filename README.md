@@ -26,6 +26,7 @@ This checkpoint covers Phase 0 through Phase 17:
 - Admin curation workflow for glossary terms, certified metrics, certified dimensions, and semantic synonyms with validation, audit events, and search-index refresh.
 - Feedback capture and quality monitoring for assistant turns, issue reasons, and route-level quality signals.
 - LLM-first chat orchestration with AWS Bedrock Titan support, governed metadata retrieval, conversational clarification, SQL, and source citations.
+- Structured LLM intent decision contract with backend policy enforcement so definition, metadata, and lineage questions cannot generate SQL or charts.
 
 Later phases will add evaluation set generation and production hardening.
 
@@ -106,7 +107,7 @@ Then start the backend normally:
 python3 -m uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-The LLM is allowed to decide intent, clarification, semantic asset selection, SQL planning, and answer wording only from retrieved governed metadata. Deterministic validation still blocks SQL that references non-governed, restricted, or unapproved columns.
+The LLM is allowed to decide intent, clarification, semantic asset selection, SQL planning, and answer wording only from retrieved governed metadata. The LLM decision must include `response_mode`, `allow_sql`, and `allow_chart`; backend policy blocks SQL for definition, metadata, and lineage questions and blocks charts unless the intent is a chart request. Deterministic validation still blocks SQL that references non-governed, restricted, or unapproved columns.
 
 Classify a user message:
 

@@ -255,6 +255,7 @@ Deliverables:
 - LLM-first LangGraph chat orchestration for intent, semantic asset selection, clarification, SQL-backed analytics, answer generation, and chart routing.
 - Conversational clarification flow that lets the user answer naturally in the next chat turn.
 - Chat responses include generated SQL and source citations.
+- Structured LLM intent contract with `response_mode`, `allow_sql`, and `allow_chart` policy enforcement.
 - Simplified frontend focused on a single chatbot experience.
 - SQL validation hardened to compare generated SQL references against governed allowed columns and restricted flags.
 - Admin metric curation validates calculation expressions against governed required columns.

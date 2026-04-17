@@ -16,6 +16,28 @@ from backend.app.semantic.resolver import ResolutionStatus, semantic_resolver
 from backend.app.sql.service import SqlServiceStatus, governed_sql_service
 
 
+INFORMATION_INTENTS = {
+    "definition_question",
+    "metadata_question",
+    "lineage_question",
+    "table_discovery_question",
+}
+ANALYTICAL_INTENTS = {"analytical_query", "chart_query"}
+VALID_INTENTS = INFORMATION_INTENTS | ANALYTICAL_INTENTS | {"clarification_response", "unsupported"}
+RESPONSE_MODE_BY_INTENT = {
+    "definition_question": "definition_only",
+    "metadata_question": "metadata_only",
+    "lineage_question": "lineage_only",
+    "table_discovery_question": "metadata_only",
+    "analytical_query": "sql_answer",
+    "chart_query": "chart_answer",
+    "clarification_response": "clarification",
+    "unsupported": "unsupported",
+}
+SQL_ALLOWED_INTENTS = {"analytical_query", "chart_query"}
+CHART_ALLOWED_INTENTS = {"chart_query"}
+
+
 class LlmAssistantState(TypedDict, total=False):
     message: str
     conversation_id: Optional[str]
@@ -37,6 +59,7 @@ class LlmAssistantState(TypedDict, total=False):
     requires_clarification: bool
     clarification_options: List[Dict[str, Any]]
     source_citations: List[Dict[str, Any]]
+    response_mode: str
     graph_trace: List[str]
     warnings: List[str]
 
@@ -107,7 +130,7 @@ class LlmGovernedAssistantGraph:
         }
 
     def _interpret(self, state: LlmAssistantState) -> dict[str, Any]:
-        decision = llm_client.invoke_json(
+        raw_decision = llm_client.invoke_json(
             task_name="intent_semantic_resolution",
             system_prompt=self._resolver_prompt(),
             input_payload={
@@ -119,6 +142,22 @@ class LlmGovernedAssistantGraph:
             },
             fallback=lambda: self._local_resolution(state),
         )
+        decision = self._normalize_decision(raw_decision)
+        policy = self._policy_for_decision(decision)
+        decision.update(policy)
+
+        if policy["requires_clarification"]:
+            return {
+                "llm_decision": decision,
+                "status": OrchestrationStatus.NEEDS_CLARIFICATION,
+                "final_answer": decision.get("clarification_question")
+                or "Should I answer this from metadata, calculate it from data, or create a chart?",
+                "next_action": "ask_follow_up_clarification",
+                "requires_clarification": True,
+                "clarification_options": decision.get("clarification_options") or [],
+                "response_mode": "clarification",
+                "graph_trace": state.get("graph_trace", []) + ["llm_interpret", "intent_policy_clarification"],
+            }
 
         if decision.get("action") == "information":
             answer = self._information_answer(decision=decision, context=state.get("metadata_context") or {})
@@ -129,7 +168,8 @@ class LlmGovernedAssistantGraph:
                 "next_action": "answer_from_governed_metadata",
                 "requires_clarification": False,
                 "clarification_options": [],
-                "graph_trace": state.get("graph_trace", []) + ["llm_interpret", "llm_answer"],
+                "response_mode": decision["response_mode"],
+                "graph_trace": state.get("graph_trace", []) + ["llm_interpret", "intent_policy_information", "llm_answer"],
             }
 
         if decision.get("action") == "clarify":
@@ -140,6 +180,7 @@ class LlmGovernedAssistantGraph:
                 "next_action": "ask_follow_up_clarification",
                 "requires_clarification": True,
                 "clarification_options": decision.get("clarification_options") or [],
+                "response_mode": "clarification",
                 "graph_trace": state.get("graph_trace", []) + ["llm_interpret", "clarification"],
             }
 
@@ -151,7 +192,20 @@ class LlmGovernedAssistantGraph:
                 "next_action": "ask_user_for_supported_commercial_banking_request",
                 "requires_clarification": False,
                 "clarification_options": [],
+                "response_mode": "unsupported",
                 "graph_trace": state.get("graph_trace", []) + ["llm_interpret", "unsupported"],
+            }
+
+        if not decision["allow_sql"]:
+            return {
+                "llm_decision": decision,
+                "status": OrchestrationStatus.NEEDS_CLARIFICATION,
+                "final_answer": "Do you want the business definition, a SQL-backed calculation, or a chart?",
+                "next_action": "clarify_response_mode_before_sql",
+                "requires_clarification": True,
+                "clarification_options": self._response_mode_options(),
+                "response_mode": "clarification",
+                "graph_trace": state.get("graph_trace", []) + ["llm_interpret", "intent_policy_blocked_sql"],
             }
 
         return self._analytics(state=state, decision=decision)
@@ -183,6 +237,7 @@ class LlmGovernedAssistantGraph:
                 "next_action": "ask_follow_up_clarification",
                 "requires_clarification": True,
                 "clarification_options": semantic_result.get("ambiguities") or [],
+                "response_mode": "clarification",
                 "graph_trace": state.get("graph_trace", []) + ["llm_interpret", "sql_plan_blocked"],
             }
 
@@ -195,6 +250,7 @@ class LlmGovernedAssistantGraph:
                 "next_action": "review_sql_validation",
                 "requires_clarification": False,
                 "clarification_options": [],
+                "response_mode": "sql_answer",
                 "graph_trace": state.get("graph_trace", []) + ["llm_interpret", "sql_invalid"],
             }
 
@@ -207,6 +263,7 @@ class LlmGovernedAssistantGraph:
                 "next_action": "review_sql",
                 "requires_clarification": False,
                 "clarification_options": [],
+                "response_mode": decision["response_mode"],
                 "graph_trace": state.get("graph_trace", []) + ["llm_interpret", "llm_sql_generate"],
             }
 
@@ -231,6 +288,7 @@ class LlmGovernedAssistantGraph:
                 "requires_clarification": False,
                 "clarification_options": [],
                 "warnings": execution_result.get("warnings") or [],
+                "response_mode": decision["response_mode"],
                 "graph_trace": state.get("graph_trace", []) + ["llm_interpret", "llm_sql_generate", "execute_failed"],
             }
 
@@ -257,7 +315,7 @@ class LlmGovernedAssistantGraph:
         answer_result["key_points"] = answer_payload.get("key_points") or answer_result.get("key_points") or []
 
         chart_result = None
-        if decision.get("chart_requested"):
+        if decision.get("chart_requested") and decision.get("allow_chart"):
             chart_result = governed_chart_generator.chart_from_answer_result(
                 message=state["message"],
                 answer_result=answer_result,
@@ -276,8 +334,98 @@ class LlmGovernedAssistantGraph:
             "requires_clarification": False,
             "clarification_options": [],
             "warnings": execution_result.get("warnings") or [],
+            "response_mode": "chart_answer" if chart_result else "sql_answer",
             "graph_trace": state.get("graph_trace", []) + ["llm_interpret", "llm_sql_generate", "validate", "execute", "llm_answer"],
         }
+
+    def _normalize_decision(self, decision: dict[str, Any]) -> dict[str, Any]:
+        normalized = dict(decision or {})
+        intent = normalized.get("intent")
+        if intent not in VALID_INTENTS:
+            intent = "clarification_response"
+        normalized["intent"] = intent
+
+        response_mode = normalized.get("response_mode") or RESPONSE_MODE_BY_INTENT[intent]
+        if intent in INFORMATION_INTENTS or intent in {"chart_query", "unsupported", "clarification_response"}:
+            response_mode = RESPONSE_MODE_BY_INTENT[intent]
+        if response_mode not in {
+            "definition_only",
+            "metadata_only",
+            "lineage_only",
+            "sql_answer",
+            "chart_answer",
+            "clarification",
+            "unsupported",
+        }:
+            response_mode = RESPONSE_MODE_BY_INTENT[intent]
+        normalized["response_mode"] = response_mode
+
+        if intent in INFORMATION_INTENTS:
+            normalized["action"] = "information"
+        elif intent == "unsupported":
+            normalized["action"] = "unsupported"
+        elif response_mode == "clarification" or normalized.get("action") == "clarify":
+            normalized["action"] = "clarify"
+        else:
+            normalized["action"] = "analytics"
+
+        normalized["allow_sql"] = bool(normalized.get("allow_sql")) and intent in SQL_ALLOWED_INTENTS
+        normalized["allow_chart"] = bool(normalized.get("allow_chart")) and intent in CHART_ALLOWED_INTENTS
+        if intent == "analytical_query":
+            normalized["chart_requested"] = False
+            normalized["allow_chart"] = False
+        if intent == "chart_query":
+            normalized["chart_requested"] = True
+            normalized["allow_sql"] = True
+            normalized["allow_chart"] = True
+            normalized["response_mode"] = "chart_answer"
+        return normalized
+
+    def _policy_for_decision(self, decision: dict[str, Any]) -> dict[str, Any]:
+        intent = decision["intent"]
+        confidence = float(decision.get("confidence") or 0.0)
+        inconsistent = False
+        if intent in INFORMATION_INTENTS and (decision.get("allow_sql") or decision.get("allow_chart")):
+            inconsistent = True
+        if intent == "analytical_query" and decision.get("allow_chart"):
+            inconsistent = True
+        if intent == "chart_query" and not decision.get("allow_sql"):
+            inconsistent = True
+
+        requires_clarification = False
+        if intent == "clarification_response":
+            requires_clarification = True
+        elif confidence and confidence < 0.60:
+            requires_clarification = True
+        elif inconsistent:
+            requires_clarification = True
+
+        return {
+            "allow_sql": intent in SQL_ALLOWED_INTENTS and bool(decision.get("allow_sql")),
+            "allow_chart": intent in CHART_ALLOWED_INTENTS and bool(decision.get("allow_chart")),
+            "requires_clarification": requires_clarification,
+            "policy_reason": self._policy_reason(intent=intent, confidence=confidence, inconsistent=inconsistent),
+        }
+
+    def _policy_reason(self, intent: str, confidence: float, inconsistent: bool) -> str:
+        if inconsistent:
+            return "The LLM decision mixed informational and analytical permissions, so SQL/chart generation was blocked."
+        if confidence and confidence < 0.60:
+            return "The LLM intent confidence was below the threshold for governed execution."
+        if intent in INFORMATION_INTENTS:
+            return "Information requests are answered from governed metadata only."
+        if intent == "analytical_query":
+            return "Analytical requests may generate SQL but not charts unless the user asks for a chart."
+        if intent == "chart_query":
+            return "Chart requests may generate SQL and a chart after validation."
+        return "The request needs clarification or is outside supported scope."
+
+    def _response_mode_options(self) -> list[dict[str, Any]]:
+        return [
+            {"id": "definition_only", "label": "Business definition only"},
+            {"id": "sql_answer", "label": "Calculate from data"},
+            {"id": "chart_answer", "label": "Plot a chart"},
+        ]
 
     def _local_resolution(self, state: LlmAssistantState) -> dict[str, Any]:
         selected_metric_id = state.get("selected_metric_id")
@@ -298,6 +446,10 @@ class LlmGovernedAssistantGraph:
             return {
                 "action": "information",
                 "intent": semantic_result["intent"],
+                "response_mode": RESPONSE_MODE_BY_INTENT.get(semantic_result["intent"], "definition_only"),
+                "allow_sql": False,
+                "allow_chart": False,
+                "confidence": semantic_result.get("confidence", 0.90),
                 "selected_metric_id": None,
                 "selected_dimension_ids": [],
                 "chart_requested": False,
@@ -305,13 +457,24 @@ class LlmGovernedAssistantGraph:
             }
 
         if semantic_result["status"] == ResolutionStatus.UNSUPPORTED:
-            return {"action": "unsupported", "intent": "unsupported"}
+            return {
+                "action": "unsupported",
+                "intent": "unsupported",
+                "response_mode": "unsupported",
+                "allow_sql": False,
+                "allow_chart": False,
+                "confidence": semantic_result.get("confidence", 0.90),
+            }
 
         if semantic_result["status"] == ResolutionStatus.NEEDS_CLARIFICATION:
             ambiguities = semantic_result.get("ambiguities") or []
             return {
                 "action": "clarify",
                 "intent": semantic_result["intent"],
+                "response_mode": "clarification",
+                "allow_sql": False,
+                "allow_chart": False,
+                "confidence": semantic_result.get("confidence", 0.72),
                 "clarification_question": self._clarification_question(ambiguities),
                 "clarification_options": ambiguities,
                 "chart_requested": semantic_result["intent"] == "chart_query",
@@ -322,6 +485,10 @@ class LlmGovernedAssistantGraph:
         return {
             "action": "analytics",
             "intent": semantic_result["intent"],
+            "response_mode": "chart_answer" if semantic_result["intent"] == "chart_query" else "sql_answer",
+            "allow_sql": True,
+            "allow_chart": semantic_result["intent"] == "chart_query",
+            "confidence": semantic_result.get("confidence", 0.91),
             "selected_metric_id": (plan.get("metric") or {}).get("id"),
             "selected_dimension_ids": [dimension["id"] for dimension in plan.get("dimensions") or []],
             "chart_requested": semantic_result["intent"] == "chart_query" or "plot" in state["message"].lower(),
@@ -414,10 +581,20 @@ class LlmGovernedAssistantGraph:
     def _resolver_prompt(self) -> str:
         return (
             "You are a governed commercial banking analytics assistant using AWS Bedrock Titan. "
-            "Choose intent and semantic assets only from the provided metadata context. "
-            "If table, column, metric, or dimension choice is unclear, ask a follow-up clarification. "
-            "Never invent table names or column names. Return JSON with action, intent, selected_metric_id, "
-            "selected_dimension_ids, chart_requested, chart_type, clarification_question, clarification_options, and citations."
+            "First classify the user request into exactly one intent: definition_question, metadata_question, "
+            "lineage_question, table_discovery_question, analytical_query, chart_query, clarification_response, "
+            "or unsupported. Metric names may contain words such as average, total, rate, or balance; those words "
+            "do not mean the user wants calculation. If the user asks what something means, define, explain, or asks "
+            "for business meaning, classify as definition_question and set allow_sql=false and allow_chart=false. "
+            "If the user asks where data lives or asks for fields/schema, classify as metadata_question or "
+            "table_discovery_question and set allow_sql=false. If the user asks where a metric comes from, classify "
+            "as lineage_question and set allow_sql=false. Only analytical_query may generate SQL without a chart. "
+            "Only chart_query may generate SQL plus chart, and only when the user explicitly asks to plot, chart, "
+            "graph, visualize, or trend data. Choose semantic assets only from provided metadata context. If table, "
+            "column, metric, dimension, or response mode is unclear, ask a follow-up clarification. Never invent table "
+            "names or column names. Return only JSON with intent, action, response_mode, allow_sql, allow_chart, "
+            "confidence, reason, selected_metric_id, selected_dimension_ids, chart_requested, chart_type, "
+            "clarification_question, clarification_options, and citations."
         )
 
     def _answer_prompt(self) -> str:
@@ -440,6 +617,7 @@ class LlmGovernedAssistantGraph:
             "route": "llm_governed_chat_flow",
             "answer": state.get("final_answer", ""),
             "next_action": state.get("next_action", "review_request"),
+            "response_mode": state.get("response_mode") or decision.get("response_mode"),
             "requires_clarification": state.get("requires_clarification", False),
             "clarification_options": state.get("clarification_options", []),
             "sql_visible": bool(sql_result.get("generated_sql")),
@@ -459,6 +637,11 @@ class LlmGovernedAssistantGraph:
                 "provider": decision.get("llm_provider"),
                 "task": decision.get("llm_task"),
                 "error": decision.get("llm_error"),
+                "intent_confidence": decision.get("confidence"),
+                "response_mode": decision.get("response_mode"),
+                "allow_sql": decision.get("allow_sql"),
+                "allow_chart": decision.get("allow_chart"),
+                "policy_reason": decision.get("policy_reason"),
             },
             "assumptions": sql_result.get("assumptions") or [],
             "warnings": state.get("warnings") or [],

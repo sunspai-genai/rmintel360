@@ -102,7 +102,7 @@ function renderAssistantResponse(payload) {
 function metaRow(payload) {
   const row = document.createElement("div");
   row.className = "meta";
-  [payload.status, payload.intent, payload.route].filter(Boolean).forEach((item) => {
+  [payload.status, payload.intent, payload.response_mode, payload.route].filter(Boolean).forEach((item) => {
     const pill = document.createElement("span");
     pill.textContent = item;
     row.appendChild(pill);

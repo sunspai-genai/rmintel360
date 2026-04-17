@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from backend.app.main import app
 from backend.app.orchestration.graph import OrchestrationStatus, governed_assistant_graph
+from backend.app.orchestration.llm_graph import llm_governed_assistant_graph
 
 
 client = TestClient(app)
@@ -84,6 +85,87 @@ def test_chat_api_contract_for_sql_generation() -> None:
     assert "llm_interpret" in payload["graph_trace"]
     assert "execute" in payload["graph_trace"]
     assert payload["source_citations"]
+
+
+def test_chat_api_definition_question_does_not_generate_sql_or_chart() -> None:
+    response = client.post(
+        "/chat/message",
+        json={
+            "message": "What does average collected balance mean?",
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == OrchestrationStatus.ANSWERED
+    assert payload["intent"] == "definition_question"
+    assert payload["response_mode"] == "definition_only"
+    assert payload["generated_sql"] is None
+    assert payload["result_table"] is None
+    assert payload["chart_spec"] is None
+    assert payload["source_citations"]
+
+
+def test_llm_policy_blocks_sql_for_information_intent(monkeypatch) -> None:
+    def fake_invoke_json(**_: object) -> dict[str, object]:
+        return {
+            "intent": "definition_question",
+            "action": "analytics",
+            "response_mode": "sql_answer",
+            "allow_sql": True,
+            "allow_chart": True,
+            "confidence": 0.95,
+            "selected_metric_id": "metric.average_deposit_collected_balance",
+            "selected_dimension_ids": ["dimension.customer_segment"],
+            "chart_requested": True,
+            "chart_type": "bar",
+        }
+
+    monkeypatch.setattr("backend.app.orchestration.llm_graph.llm_client.invoke_json", fake_invoke_json)
+
+    result = llm_governed_assistant_graph.invoke(
+        "What does average collected balance mean?",
+        user_role="technical_user",
+    )
+
+    assert result["status"] == OrchestrationStatus.ANSWERED
+    assert result["intent"] == "definition_question"
+    assert result["response_mode"] == "definition_only"
+    assert result["generated_sql"] is None
+    assert result["result_table"] is None
+    assert result["chart_spec"] is None
+    assert result["llm_trace"]["allow_sql"] is False
+    assert result["llm_trace"]["allow_chart"] is False
+
+
+def test_low_confidence_llm_analytics_decision_asks_clarification(monkeypatch) -> None:
+    def fake_invoke_json(**_: object) -> dict[str, object]:
+        return {
+            "intent": "analytical_query",
+            "action": "analytics",
+            "response_mode": "sql_answer",
+            "allow_sql": True,
+            "allow_chart": False,
+            "confidence": 0.42,
+            "selected_metric_id": "metric.average_deposit_collected_balance",
+            "selected_dimension_ids": ["dimension.customer_segment"],
+            "chart_requested": False,
+        }
+
+    monkeypatch.setattr("backend.app.orchestration.llm_graph.llm_client.invoke_json", fake_invoke_json)
+
+    result = llm_governed_assistant_graph.invoke(
+        "Average collected balance.",
+        user_role="technical_user",
+    )
+
+    assert result["status"] == OrchestrationStatus.NEEDS_CLARIFICATION
+    assert result["requires_clarification"] is True
+    assert result["response_mode"] == "clarification"
+    assert result["generated_sql"] is None
+    assert result["chart_spec"] is None
 
 
 def test_unsupported_question_routes_to_unsupported_flow() -> None:

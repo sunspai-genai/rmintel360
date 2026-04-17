@@ -27,6 +27,7 @@ class ChatResponse(BaseModel):
     route: Optional[str]
     answer: str
     next_action: str
+    response_mode: Optional[str] = None
     requires_clarification: bool
     clarification_options: List[Dict[str, Any]]
     sql_visible: bool
