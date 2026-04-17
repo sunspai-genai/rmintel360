@@ -1,14 +1,18 @@
 :root {
   color-scheme: light;
-  --page: #f6f7f4;
+  --page: #f4f7fb;
   --surface: #ffffff;
-  --ink: #14201b;
-  --muted: #61706a;
-  --line: #d7ded8;
-  --teal: #0d7067;
-  --rose: #b94747;
-  --steel: #31586b;
-  --shadow: 0 18px 45px rgba(28, 42, 36, 0.13);
+  --surface-soft: #f8fbfc;
+  --ink: #102131;
+  --muted: #637386;
+  --line: #d8e2ea;
+  --line-strong: #bdd0dc;
+  --blue: #1b5f9e;
+  --blue-soft: #e8f1fa;
+  --green: #0b7d68;
+  --green-soft: #e7f5f1;
+  --rose: #ba4545;
+  --shadow: 0 18px 48px rgba(30, 54, 78, 0.14);
 }
 
 * {
@@ -18,7 +22,9 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--page);
+  background:
+    linear-gradient(180deg, #eef5f8 0, var(--page) 320px),
+    var(--page);
   color: var(--ink);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -34,9 +40,9 @@ textarea {
 
 .chat-shell {
   display: grid;
-  grid-template-rows: auto minmax(420px, 1fr) auto;
-  gap: 16px;
-  width: min(1100px, calc(100vw - 28px));
+  grid-template-rows: auto minmax(430px, 1fr) auto;
+  gap: 18px;
+  width: min(1120px, calc(100vw - 32px));
   min-height: 100vh;
   margin: 0 auto;
   padding: 24px 0;
@@ -44,14 +50,19 @@ textarea {
 
 .chat-header {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
+  gap: 18px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
 }
 
 .chat-header p {
-  margin: 0 0 4px;
-  color: var(--teal);
+  margin: 0 0 6px;
+  color: var(--green);
   font-size: 0.8rem;
   font-weight: 900;
   text-transform: uppercase;
@@ -59,27 +70,32 @@ textarea {
 
 h1 {
   margin: 0;
-  font-size: clamp(2rem, 5vw, 3.75rem);
-  line-height: 0.96;
+  color: var(--ink);
+  font-size: 2.45rem;
+  line-height: 1;
 }
 
 .health {
-  min-width: 110px;
+  min-width: 124px;
   padding: 9px 12px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
-  background: var(--surface);
+  background: var(--surface-soft);
   color: var(--muted);
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   font-weight: 800;
   text-align: center;
 }
 
 .health.ok {
-  color: var(--teal);
+  border-color: rgba(11, 125, 104, 0.32);
+  background: var(--green-soft);
+  color: var(--green);
 }
 
 .health.bad {
+  border-color: rgba(186, 69, 69, 0.34);
+  background: #fff3f2;
   color: var(--rose);
 }
 
@@ -88,54 +104,64 @@ h1 {
   flex-direction: column;
   gap: 14px;
   overflow: auto;
-  padding: 18px;
+  padding: 20px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.92);
   box-shadow: var(--shadow);
 }
 
 .welcome {
   display: grid;
   place-items: center;
-  min-height: 280px;
+  min-height: 300px;
   color: var(--muted);
   text-align: center;
 }
 
 .welcome p {
-  max-width: 640px;
+  max-width: 690px;
   margin: 5px 0;
-  line-height: 1.5;
+  line-height: 1.55;
+}
+
+.welcome p:first-child {
+  color: var(--ink);
+  font-size: 1.05rem;
+  font-weight: 850;
 }
 
 .message {
-  max-width: min(880px, 100%);
+  max-width: min(900px, 100%);
   padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfcfa;
+  background: var(--surface);
 }
 
 .message.user {
   align-self: flex-end;
-  border-color: rgba(13, 112, 103, 0.3);
-  background: #eef7f4;
+  border-color: rgba(11, 125, 104, 0.36);
+  background: var(--green-soft);
+  color: #0f2b25;
 }
 
 .message.assistant {
   align-self: flex-start;
+  border-color: rgba(27, 95, 158, 0.22);
+  border-left: 4px solid var(--blue);
 }
 
 .message.error {
-  border-color: rgba(185, 71, 71, 0.35);
+  border-color: rgba(186, 69, 69, 0.35);
   background: #fff7f6;
+  color: #6e2626;
 }
 
 .message p {
   margin: 0;
   white-space: pre-wrap;
-  line-height: 1.55;
+  line-height: 1.58;
 }
 
 .hint {
@@ -147,17 +173,18 @@ h1 {
 .meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 7px;
   margin-bottom: 10px;
 }
 
 .meta span {
   min-height: 24px;
   padding: 4px 8px;
+  border: 1px solid rgba(27, 95, 158, 0.15);
   border-radius: 999px;
-  background: #f0f4f1;
-  color: var(--muted);
-  font-size: 0.75rem;
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-size: 0.72rem;
   font-weight: 900;
   text-transform: uppercase;
 }
@@ -166,12 +193,12 @@ details {
   margin-top: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface-soft);
 }
 
 summary {
   padding: 10px 12px;
-  color: var(--steel);
+  color: var(--blue);
   font-weight: 900;
   cursor: pointer;
 }
@@ -181,6 +208,7 @@ pre {
   margin: 0;
   padding: 12px;
   border-top: 1px solid var(--line);
+  color: #20384f;
   font-size: 0.86rem;
   line-height: 1.45;
 }
@@ -201,6 +229,7 @@ li {
   margin-top: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
+  background: var(--surface);
 }
 
 .table-wrap {
@@ -215,6 +244,7 @@ table {
   width: 100%;
   min-width: 540px;
   border-collapse: collapse;
+  background: var(--surface);
 }
 
 th,
@@ -226,10 +256,49 @@ td {
 }
 
 th {
-  background: #f0f4f1;
-  color: var(--muted);
-  font-size: 0.8rem;
+  background: #eef4f8;
+  color: #40596f;
+  font-size: 0.78rem;
   text-transform: uppercase;
+}
+
+.feedback {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.feedback-button {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.feedback-button:hover,
+.feedback-button.selected {
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+
+.feedback-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.feedback-status {
+  min-width: 72px;
+  color: var(--green);
+  font-weight: 750;
 }
 
 .composer {
@@ -244,27 +313,34 @@ th {
 
 .composer textarea {
   flex: 1;
-  min-height: 54px;
+  min-height: 56px;
   max-height: 180px;
   resize: vertical;
-  padding: 12px;
-  border: 1px solid var(--line);
+  padding: 13px 14px;
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
+  color: var(--ink);
+  background: var(--surface-soft);
 }
 
 .composer textarea:focus {
-  outline: 3px solid rgba(13, 112, 103, 0.18);
-  border-color: var(--teal);
+  outline: 3px solid rgba(27, 95, 158, 0.18);
+  border-color: var(--blue);
+  background: var(--surface);
 }
 
 .composer button {
-  min-width: 96px;
+  min-width: 104px;
   border: 0;
   border-radius: 8px;
-  background: var(--teal);
+  background: var(--green);
   color: #ffffff;
   font-weight: 900;
   cursor: pointer;
+}
+
+.composer button:hover {
+  background: #096d5b;
 }
 
 .composer button:disabled {
@@ -291,6 +367,10 @@ th {
   .composer {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  h1 {
+    font-size: 1.9rem;
   }
 
   .health {

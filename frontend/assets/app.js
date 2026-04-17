@@ -94,6 +94,7 @@ function renderAssistantResponse(payload) {
   if (payload.result_table) renderTable(bubble, payload.result_table);
   if (payload.generated_sql) renderDetails(bubble, "SQL Query", payload.generated_sql);
   if (payload.source_citations?.length) renderSources(bubble, payload.source_citations);
+  if (payload.turn_id) renderFeedback(bubble, payload);
 
   elements.messages.appendChild(bubble);
   scrollToBottom();
@@ -125,6 +126,79 @@ function renderSources(container, sources) {
   details.appendChild(summary);
   details.appendChild(list);
   container.appendChild(details);
+}
+
+function renderFeedback(container, payload) {
+  const feedback = document.createElement("div");
+  feedback.className = "feedback";
+
+  const label = document.createElement("span");
+  label.textContent = "Was this useful?";
+  feedback.appendChild(label);
+
+  const positive = feedbackButton("positive", "👍", "Mark answer as helpful");
+  const negative = feedbackButton("negative", "👎", "Mark answer as needing review");
+  feedback.appendChild(positive);
+  feedback.appendChild(negative);
+
+  const status = document.createElement("span");
+  status.className = "feedback-status";
+  feedback.appendChild(status);
+
+  [positive, negative].forEach((button) => {
+    button.addEventListener("click", () => {
+      sendFeedback(payload, button.dataset.rating, feedback, status);
+    });
+  });
+
+  container.appendChild(feedback);
+}
+
+function feedbackButton(rating, icon, label) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "feedback-button";
+  button.dataset.rating = rating;
+  button.textContent = icon;
+  button.title = label;
+  button.setAttribute("aria-label", label);
+  return button;
+}
+
+async function sendFeedback(payload, rating, feedback, status) {
+  if (feedback.dataset.submitted === rating) return;
+  const buttons = feedback.querySelectorAll("button");
+  buttons.forEach((button) => {
+    button.disabled = true;
+  });
+  status.textContent = "Sending";
+
+  try {
+    const response = await fetch("/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        turn_id: payload.turn_id,
+        conversation_id: payload.conversation_id,
+        rating,
+        reason_code: rating === "positive" ? "helpful" : "other",
+        user_role: "technical_user",
+      }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.detail || `Feedback failed with ${response.status}`);
+    feedback.dataset.submitted = rating;
+    buttons.forEach((button) => {
+      button.classList.toggle("selected", button.dataset.rating === rating);
+      button.disabled = false;
+    });
+    status.textContent = "Saved";
+  } catch (error) {
+    buttons.forEach((button) => {
+      button.disabled = false;
+    });
+    status.textContent = "Could not save";
+  }
 }
 
 function renderChart(container, chartSpec) {
@@ -204,8 +278,8 @@ function appendMessage(type, text) {
 function renderWelcome() {
   elements.messages.innerHTML = `
     <div class="welcome" data-welcome="true">
-      <p>Ask a governed commercial banking question.</p>
-      <p>Examples: “What does average collected balance mean?”, “Show average deposit ledger balance by customer segment”, “Plot loan utilization by month”.</p>
+      <p>Ask a governed enterprise data question.</p>
+      <p>Try “What does average collected balance mean?”, “Show average deposit ledger balance by customer segment”, or “Plot loan utilization by month”.</p>
     </div>
   `;
 }

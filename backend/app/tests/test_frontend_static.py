@@ -10,7 +10,7 @@ def test_frontend_index_is_served() -> None:
     response = client.get("/")
 
     assert response.status_code == 200
-    assert "Governed Assistant" in response.text
+    assert "CFG Enterprise Data Bot" in response.text
     assert "/assets/app.js" in response.text
 
 
