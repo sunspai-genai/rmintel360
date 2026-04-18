@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from backend.app.cache.service import assistant_response_cache
 from backend.app.main import app
 from backend.app.orchestration.graph import OrchestrationStatus, governed_assistant_graph
 from backend.app.orchestration.llm_graph import llm_governed_assistant_graph
@@ -276,7 +277,8 @@ def test_chat_restricted_customer_name_request_asks_for_safe_grouping() -> None:
     assert payload["clarification_options"][0]["kind"] == "restricted_column"
 
 
-def test_chat_analytical_answer_is_deterministic_when_llm_answer_varies(monkeypatch) -> None:
+def test_chat_analytical_answer_is_cached_when_llm_answer_varies(monkeypatch) -> None:
+    assistant_response_cache.clear()
     calls = {"answer_generation": 0}
 
     def fake_invoke_json(**kwargs: object) -> dict[str, object]:
@@ -297,8 +299,9 @@ def test_chat_analytical_answer_is_deterministic_when_llm_answer_varies(monkeypa
         json={"message": "Plot loan utilization by month.", "user_role": "technical_user", "technical_mode": True},
     ).json()
 
-    assert calls["answer_generation"] == 0
+    assert calls["answer_generation"] == 1
     assert first["answer"] == second["answer"]
+    assert second["llm_trace"]["cache_status"] == "hit"
     assert first["result_table"]["columns"] == ["year_month", "loan_utilization_rate"]
     assert first["chart_spec"]["x_axis"]["column"] == "year_month"
     assert "GROUP BY dd.year_month" in first["generated_sql"]

@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from backend.app.semantic.resolver import ResolutionStatus, semantic_resolver
-from backend.app.sql.generator import SqlGenerationStatus, governed_sql_generator
+from backend.app.sql.generator import SqlGenerationStatus
+from backend.app.sql.llm_generator import llm_governed_sql_generator
 
 
 class SqlServiceStatus:
@@ -31,6 +32,7 @@ class SqlServiceResult:
     governed_query_plan: dict[str, Any] | None
     assumptions: list[str]
     warnings: list[str]
+    llm_generation: dict[str, Any]
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -47,6 +49,7 @@ class SqlServiceResult:
             "governed_query_plan": self.governed_query_plan,
             "assumptions": self.assumptions,
             "warnings": self.warnings,
+            "llm_generation": self.llm_generation,
         }
 
 
@@ -107,7 +110,7 @@ class GovernedSqlService:
                 technical_mode=technical_mode,
             )
 
-        generation_result = governed_sql_generator.generate(governed_query_plan=governed_query_plan, limit=limit)
+        generation_result = llm_governed_sql_generator.generate(governed_query_plan=governed_query_plan, limit=limit)
         sql_visible = self._is_sql_visible(user_role=user_role, technical_mode=technical_mode)
         status = (
             SqlServiceStatus.GENERATED
@@ -130,6 +133,7 @@ class GovernedSqlService:
             governed_query_plan=governed_query_plan,
             assumptions=semantic_result.get("assumptions") or [],
             warnings=generation_result.warnings,
+            llm_generation=generation_result.llm_generation,
         )
 
     def _blocked_result(
@@ -171,6 +175,7 @@ class GovernedSqlService:
             governed_query_plan=semantic_result.get("governed_query_plan"),
             assumptions=semantic_result.get("assumptions") or [],
             warnings=[],
+            llm_generation={},
         )
 
     def _is_sql_visible(self, user_role: str, technical_mode: bool) -> bool:

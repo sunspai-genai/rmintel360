@@ -6,6 +6,7 @@ from typing import Any
 import plotly.graph_objects as go
 
 from backend.app.answer.service import AnswerStatus, governed_answer_generator
+from backend.app.llm.client import llm_client
 
 
 class ChartStatus:
@@ -96,9 +97,14 @@ class GovernedChartGenerator:
                 warnings=["Chart generation blocked because the result table is empty."],
             )
 
+        chart_plan = self._chart_plan(
+            message=message,
+            answer_result=answer_result,
+        )
         chart_spec = self._build_chart_spec(
             answer_result=answer_result,
-            chart_type=chart_type,
+            chart_type=chart_plan.get("chart_type") or chart_type,
+            chart_plan=chart_plan,
         )
         return ChartGenerationResult(
             message=message,
@@ -108,7 +114,12 @@ class GovernedChartGenerator:
             warnings=answer_result.get("warnings") or [],
         )
 
-    def _build_chart_spec(self, answer_result: dict[str, Any], chart_type: str | None) -> dict[str, Any]:
+    def _build_chart_spec(
+        self,
+        answer_result: dict[str, Any],
+        chart_type: str | None,
+        chart_plan: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         execution_result = answer_result["execution_result"]
         result_table = execution_result["result_table"]
         sql_result = execution_result["sql_result"]
@@ -123,7 +134,17 @@ class GovernedChartGenerator:
             metric=metric,
             dimensions=dimensions,
         )
-        x_column = self._x_column(columns=columns, metric_column=metric_column, dimensions=dimensions)
+        chart_plan = chart_plan or {}
+        planned_x = chart_plan.get("x_axis_column")
+        planned_y = chart_plan.get("y_axis_column")
+        if planned_y in columns and self._is_numeric_column(rows=rows, column=planned_y):
+            metric_column = planned_y
+        x_column = self._validated_x_column(
+            planned_x=planned_x,
+            columns=columns,
+            metric_column=metric_column,
+            dimensions=dimensions,
+        )
         resolved_chart_type = self._chart_type(
             requested=chart_type,
             x_column=x_column or "",
@@ -172,6 +193,11 @@ class GovernedChartGenerator:
             "x_axis": {"column": x_axis_column, "label": x_axis_label},
             "y_axis": {"column": metric_column, "label": metric["business_name"]},
             "plotly_json": figure.to_plotly_json(),
+            "chart_plan": {
+                "provider": chart_plan.get("llm_provider"),
+                "task": chart_plan.get("llm_task"),
+                "rationale": chart_plan.get("rationale"),
+            },
             "data_summary": {
                 "row_count": result_table["row_count"],
                 "truncated": result_table.get("truncated", False),
@@ -200,6 +226,64 @@ class GovernedChartGenerator:
             return "line"
         return "bar"
 
+    def _chart_plan(self, message: str, answer_result: dict[str, Any]) -> dict[str, Any]:
+        fallback = lambda: self._fallback_chart_plan(answer_result=answer_result)
+        payload = llm_client.invoke_json(
+            task_name="chart_planning",
+            system_prompt=self._chart_prompt(),
+            input_payload={
+                "user_message": message,
+                "result_table": answer_result["execution_result"].get("result_table"),
+                "result_overview": answer_result.get("result_overview") or {},
+                "governed_query_plan": answer_result["execution_result"]
+                .get("sql_result", {})
+                .get("semantic_result", {})
+                .get("governed_query_plan"),
+                "supported_chart_types": ["bar", "line"],
+            },
+            fallback=fallback,
+        )
+        columns = (answer_result["execution_result"].get("result_table") or {}).get("columns") or []
+        if payload.get("x_axis_column") not in columns or payload.get("y_axis_column") not in columns:
+            fallback_payload = fallback()
+            fallback_payload.setdefault("llm_provider", payload.get("llm_provider"))
+            fallback_payload.setdefault("llm_task", payload.get("llm_task"))
+            fallback_payload.setdefault("rationale", "Fallback chart plan used because the LLM chose unavailable columns.")
+            return fallback_payload
+        return payload
+
+    def _fallback_chart_plan(self, answer_result: dict[str, Any]) -> dict[str, Any]:
+        execution_result = answer_result["execution_result"]
+        result_table = execution_result["result_table"]
+        query_plan = execution_result["sql_result"]["semantic_result"]["governed_query_plan"]
+        metric = query_plan["metric"]
+        dimensions = query_plan.get("dimensions") or []
+        metric_column = self._metric_column(
+            result_table=result_table,
+            answer_result=answer_result,
+            metric=metric,
+            dimensions=dimensions,
+        )
+        x_column = self._x_column(
+            columns=result_table["columns"],
+            metric_column=metric_column,
+            dimensions=dimensions,
+        )
+        return {
+            "chart_type": self._chart_type(requested=None, x_column=x_column or "", dimensions=dimensions),
+            "x_axis_column": x_column,
+            "y_axis_column": metric_column,
+            "rationale": "Local governed chart planner selected the query dimension for X and the metric for Y.",
+        }
+
+    def _chart_prompt(self) -> str:
+        return (
+            "You are a chart planner for governed banking analytics. Select the chart type and axes only from "
+            "the provided result_table columns. Use dimensions for the X axis and numeric metrics for the Y axis. "
+            "For month or date dimensions, prefer a line chart; otherwise prefer a bar chart. Return JSON with "
+            "chart_type, x_axis_column, y_axis_column, title, and rationale."
+        )
+
     def _metric_column(
         self,
         result_table: dict[str, Any],
@@ -208,7 +292,7 @@ class GovernedChartGenerator:
         dimensions: list[dict[str, Any]],
     ) -> str:
         columns = result_table["columns"]
-        dimension_columns = {dimension["column_name"] for dimension in dimensions}
+        dimension_columns = {self._output_name(dimension["id"]) for dimension in dimensions}
         overview_metric_column = (answer_result.get("result_overview") or {}).get("metric_column")
         if overview_metric_column in columns and overview_metric_column not in dimension_columns:
             return overview_metric_column
@@ -229,13 +313,27 @@ class GovernedChartGenerator:
 
     def _x_column(self, columns: list[str], metric_column: str, dimensions: list[dict[str, Any]]) -> str | None:
         for dimension in dimensions:
-            dimension_column = dimension["column_name"]
+            dimension_column = self._output_name(dimension["id"])
             if dimension_column in columns and dimension_column != metric_column:
                 return dimension_column
         for column in columns:
             if column != metric_column:
                 return column
         return None
+
+    def _validated_x_column(
+        self,
+        planned_x: str | None,
+        columns: list[str],
+        metric_column: str,
+        dimensions: list[dict[str, Any]],
+    ) -> str | None:
+        if planned_x in columns and planned_x != metric_column:
+            return planned_x
+        return self._x_column(columns=columns, metric_column=metric_column, dimensions=dimensions)
+
+    def _is_numeric_column(self, rows: list[dict[str, Any]], column: str) -> bool:
+        return any(isinstance(row.get(column), (int, float)) for row in rows)
 
     def _axis_label(self, column_name: str) -> str:
         return " ".join(part.capitalize() for part in column_name.split("_"))
@@ -245,6 +343,9 @@ class GovernedChartGenerator:
             return metric_name
         dimension_names = ", ".join(dimension["business_name"] for dimension in dimensions)
         return f"{metric_name} by {dimension_names}"
+
+    def _output_name(self, governed_id: str) -> str:
+        return governed_id.split(".")[-1].lower()
 
 
 governed_chart_generator = GovernedChartGenerator()

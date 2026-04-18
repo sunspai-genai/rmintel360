@@ -8,6 +8,7 @@ from typing import Any
 
 import duckdb
 
+from backend.app.cache.service import assistant_response_cache
 from backend.app.catalog.search_index import seed_search_index
 from backend.app.db.connection import connect
 from backend.app.sql.generator import TABLE_ALIASES
@@ -76,6 +77,7 @@ class CurationService:
                 notes=payload.get("notes"),
             )
             seed_search_index(conn)
+            assistant_response_cache.clear()
             return event
 
     def upsert_metric(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -94,6 +96,7 @@ class CurationService:
                 notes=payload.get("notes"),
             )
             seed_search_index(conn)
+            assistant_response_cache.clear()
             return event
 
     def upsert_dimension(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -112,6 +115,7 @@ class CurationService:
                 notes=payload.get("notes"),
             )
             seed_search_index(conn)
+            assistant_response_cache.clear()
             return event
 
     def upsert_synonym(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -131,6 +135,7 @@ class CurationService:
                 notes=payload.get("notes"),
             )
             seed_search_index(conn)
+            assistant_response_cache.clear()
             return event
 
     def list_events(

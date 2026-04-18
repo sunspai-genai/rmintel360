@@ -73,6 +73,31 @@ def test_chart_generation_uses_query_plan_dimension_when_overview_is_wrong() -> 
     assert chart["plotly_json"]["layout"]["yaxis"]["title"]["text"] == "Average Deposit Ledger Balance"
 
 
+def test_chart_planner_falls_back_when_llm_selects_invalid_axes(monkeypatch) -> None:
+    def fake_invoke_json(**kwargs: object) -> dict[str, object]:
+        if kwargs.get("task_name") == "chart_planning":
+            return {
+                "chart_type": "bar",
+                "x_axis_column": "average_deposit_ledger_balance",
+                "y_axis_column": "average_deposit_ledger_balance",
+                "rationale": "Bad LLM chart axis choice.",
+            }
+        fallback = kwargs.get("fallback")
+        return fallback() if callable(fallback) else {}
+
+    monkeypatch.setattr("backend.app.chart.service.llm_client.invoke_json", fake_invoke_json)
+
+    result = governed_chart_generator.chart_from_message(
+        message="Create a bar chart of average deposit ledger balance by customer segment",
+        user_role="technical_user",
+        chart_type="bar",
+    ).to_dict()
+
+    chart = result["chart_spec"]
+    assert chart["x_axis"]["column"] == "customer_segment"
+    assert chart["y_axis"]["column"] == "average_deposit_ledger_balance"
+
+
 def test_chart_generate_api_contract() -> None:
     response = client.post(
         "/chart/generate",

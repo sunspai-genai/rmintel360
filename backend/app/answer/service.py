@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from backend.app.execution.service import QueryExecutionStatus, governed_query_executor
+from backend.app.llm.client import llm_client
 
 
 class AnswerStatus:
@@ -78,7 +79,12 @@ class GovernedAnswerGenerator:
         if execution_result["status"] != QueryExecutionStatus.EXECUTED:
             return self._blocked_answer(message=message, execution_result=execution_result)
 
-        analytical = self._build_analytical_answer(execution_result)
+        fallback_analytical = self._build_analytical_answer(execution_result)
+        analytical = self._llm_analytical_answer(
+            message=message,
+            execution_result=execution_result,
+            fallback_analytical=fallback_analytical,
+        )
         sql_result = execution_result["sql_result"]
         return AnalyticalAnswerResult(
             message=message,
@@ -89,6 +95,50 @@ class GovernedAnswerGenerator:
             execution_result=execution_result,
             assumptions=sql_result.get("assumptions") or [],
             warnings=execution_result.get("warnings") or [],
+        )
+
+    def _llm_analytical_answer(
+        self,
+        message: str,
+        execution_result: dict[str, Any],
+        fallback_analytical: dict[str, Any],
+    ) -> dict[str, Any]:
+        payload = llm_client.invoke_json(
+            task_name="answer_generation",
+            system_prompt=self._answer_prompt(),
+            input_payload={
+                "user_message": message,
+                "result_table": execution_result.get("result_table"),
+                "sql_summary": execution_result.get("sql_result", {}).get("sql_summary"),
+                "governed_query_plan": execution_result.get("sql_result", {})
+                .get("semantic_result", {})
+                .get("governed_query_plan"),
+                "source_citations": execution_result.get("sql_result", {})
+                .get("semantic_result", {})
+                .get("retrieval_context", [])[:8],
+            },
+            fallback=lambda: fallback_analytical,
+        )
+        if not isinstance(payload.get("answer"), str) or not payload["answer"].strip():
+            return fallback_analytical
+        key_points = payload.get("key_points")
+        if not isinstance(key_points, list):
+            key_points = fallback_analytical["key_points"]
+        result_overview = payload.get("result_overview")
+        if not isinstance(result_overview, dict):
+            result_overview = fallback_analytical["result_overview"]
+        return {
+            "answer": payload["answer"],
+            "key_points": [str(point) for point in key_points],
+            "result_overview": result_overview,
+        }
+
+    def _answer_prompt(self) -> str:
+        return (
+            "You are a governed commercial banking analytics assistant. Summarize only the facts present in the "
+            "result_table and governed query plan. Do not invent metrics, segments, values, or causes. If the "
+            "table has dimensions, mention the relevant dimension labels. Return JSON with answer, key_points, "
+            "and result_overview."
         )
 
     def _blocked_answer(self, message: str, execution_result: dict[str, Any]) -> AnalyticalAnswerResult:

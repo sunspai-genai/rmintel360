@@ -4,6 +4,7 @@ import time
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
+import re
 from typing import Any
 
 from backend.app.db.connection import connect
@@ -74,6 +75,31 @@ class GovernedQueryExecutor:
         if sql_result["status"] != SqlServiceStatus.GENERATED:
             return self._blocked_result(message=message, sql_result=sql_result)
 
+        return self._execute_validated_sql(
+            message=message,
+            sql_result=sql_result,
+            internal_sql=generated.internal_sql,
+            limit=limit,
+        )
+
+    def execute_sql_result(self, message: str, sql_result: dict[str, Any], limit: int = 100) -> QueryExecutionResult:
+        if sql_result["status"] != SqlServiceStatus.GENERATED:
+            return self._blocked_result(message=message, sql_result=sql_result)
+
+        return self._execute_validated_sql(
+            message=message,
+            sql_result=sql_result,
+            internal_sql=sql_result.get("generated_sql"),
+            limit=limit,
+        )
+
+    def _execute_validated_sql(
+        self,
+        message: str,
+        sql_result: dict[str, Any],
+        internal_sql: str | None,
+        limit: int,
+    ) -> QueryExecutionResult:
         validation = sql_result.get("validation") or {}
         if not validation.get("is_valid"):
             return QueryExecutionResult(
@@ -86,7 +112,6 @@ class GovernedQueryExecutor:
                 warnings=["Execution blocked because SQL validation did not pass."],
             )
 
-        internal_sql = generated.internal_sql
         if not internal_sql:
             return QueryExecutionResult(
                 message=message,
@@ -145,22 +170,28 @@ class GovernedQueryExecutor:
         )
 
     def _execute_sql(self, sql: str, limit: int) -> dict[str, Any]:
+        execution_sql = self._sql_with_internal_limit(sql=sql, limit=limit + 1)
         with connect(read_only=True) as conn:
-            result = conn.execute(sql)
+            result = conn.execute(execution_sql)
             columns = [column[0] for column in result.description or []]
             rows = result.fetchall()
 
         normalized_rows = [
             {column: self._normalize_value(value) for column, value in zip(columns, row)}
-            for row in rows
+            for row in rows[:limit]
         ]
         return {
             "columns": columns,
             "rows": normalized_rows,
             "row_count": len(normalized_rows),
             "limit": limit,
-            "truncated": len(normalized_rows) >= limit,
+            "truncated": len(rows) > limit,
         }
+
+    def _sql_with_internal_limit(self, sql: str, limit: int) -> str:
+        stripped = sql.strip().rstrip(";")
+        without_limit = re.sub(r"\s+LIMIT\s+\d+\s*$", "", stripped, flags=re.IGNORECASE)
+        return f"SELECT * FROM ({without_limit}) governed_result LIMIT {limit}"
 
     def _answer_summary(self, sql_result: dict[str, Any], result_table: dict[str, Any]) -> str:
         row_count = result_table["row_count"]

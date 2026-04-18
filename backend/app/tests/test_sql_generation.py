@@ -98,6 +98,39 @@ def test_restricted_customer_name_request_does_not_generate_sql() -> None:
     assert result["semantic_result"]["ambiguities"][0]["kind"] == "restricted_column"
 
 
+def test_llm_generated_sql_cannot_reference_ungoverned_columns(monkeypatch) -> None:
+    def fake_invoke_json(**kwargs: object) -> dict[str, object]:
+        if kwargs.get("task_name") in {"sql_generation", "sql_repair"}:
+            return {
+                "sql": """
+                    SELECT
+                        dc.customer_segment AS customer_segment,
+                        MAX(dc.customer_name) AS average_deposit_ledger_balance
+                    FROM fact_deposit_balance_daily fdb
+                    INNER JOIN dim_account da ON fdb.account_id = da.account_id
+                    INNER JOIN dim_customer dc ON da.customer_id = dc.customer_id
+                    GROUP BY dc.customer_segment
+                    LIMIT 100
+                """,
+                "rationale": "Bad LLM output for validator regression.",
+            }
+        fallback = kwargs.get("fallback")
+        return fallback() if callable(fallback) else {}
+
+    monkeypatch.setattr("backend.app.sql.llm_generator.llm_client.invoke_json", fake_invoke_json)
+
+    result = governed_sql_service.generate_from_message(
+        message="Give me average balance by segment",
+        selected_metric_id="metric.average_deposit_ledger_balance",
+        selected_dimension_ids=["dimension.customer_segment"],
+        user_role="technical_user",
+    ).to_dict()
+
+    assert result["status"] == SqlServiceStatus.INVALID
+    assert result["validation"]["is_valid"] is False
+    assert "dim_customer.customer_name" in " ".join(result["validation"]["errors"])
+
+
 def test_business_user_gets_valid_sql_but_sql_text_is_hidden() -> None:
     result = governed_sql_service.generate_from_message(
         message="Give me average balance by segment",

@@ -6,6 +6,7 @@ from langgraph.graph import END, StateGraph
 
 from backend.app.catalog.service import catalog_service
 from backend.app.answer.service import governed_answer_generator
+from backend.app.cache.service import assistant_response_cache
 from backend.app.chart.service import governed_chart_generator
 from backend.app.conversation.service import conversation_store
 from backend.app.execution.service import QueryExecutionStatus, governed_query_executor
@@ -91,6 +92,27 @@ class LlmGovernedAssistantGraph:
         execute_sql: bool = True,
         **_: Any,
     ) -> dict[str, Any]:
+        cache_key = self._cache_key(
+            message=message,
+            conversation_id=conversation_id,
+            selected_metric_id=selected_metric_id,
+            selected_dimension_ids=selected_dimension_ids or [],
+            user_role=user_role,
+            limit=limit,
+            execute_sql=execute_sql,
+        )
+        if cache_key:
+            cached = assistant_response_cache.get(cache_key)
+            if cached:
+                cached["message"] = message
+                cached["conversation_id"] = conversation_id
+                cached["graph_trace"] = (cached.get("graph_trace") or []) + ["cache_hit"]
+                llm_trace = dict(cached.get("llm_trace") or {})
+                llm_trace["cache_status"] = "hit"
+                llm_trace["cache_backend"] = (cached.get("cache") or {}).get("backend")
+                cached["llm_trace"] = llm_trace
+                return cached
+
         state: LlmAssistantState = {
             "message": message,
             "conversation_id": conversation_id,
@@ -102,7 +124,11 @@ class LlmGovernedAssistantGraph:
             "graph_trace": [],
             "warnings": [],
         }
-        return self._response(self._graph.invoke(state))
+        response = self._response(self._graph.invoke(state))
+        if cache_key and response.get("status") in {OrchestrationStatus.ANSWERED, OrchestrationStatus.SQL_GENERATED}:
+            assistant_response_cache.set(cache_key, response)
+            response.setdefault("llm_trace", {})["cache_status"] = "stored"
+        return response
 
     def _memory(self, state: LlmAssistantState) -> dict[str, Any]:
         memory: dict[str, Any] = {"previous_turns": [], "pending_clarification": None}
@@ -269,13 +295,9 @@ class LlmGovernedAssistantGraph:
                 "graph_trace": state.get("graph_trace", []) + ["llm_interpret", "llm_sql_generate"],
             }
 
-        execution_result = governed_query_executor.execute_from_message(
+        execution_result = governed_query_executor.execute_sql_result(
             message=state["message"],
-            intent="chart_query" if decision.get("chart_requested") else "analytical_query",
-            selected_metric_id=selected_metric_id,
-            selected_dimension_ids=selected_dimension_ids,
-            user_role="technical_user",
-            technical_mode=True,
+            sql_result=sql_result,
             limit=state.get("limit", 100),
         ).to_dict()
 
@@ -320,8 +342,46 @@ class LlmGovernedAssistantGraph:
             "clarification_options": [],
             "warnings": execution_result.get("warnings") or [],
             "response_mode": "chart_answer" if chart_result else "sql_answer",
-            "graph_trace": state.get("graph_trace", []) + ["llm_interpret", "llm_sql_generate", "validate", "execute", "deterministic_answer"],
+            "graph_trace": state.get("graph_trace", [])
+            + ["llm_interpret", "llm_semantic_plan", "llm_sql_generate", "validate", "execute", "llm_answer"]
+            + (["llm_chart_plan", "python_plotly_build"] if chart_result else []),
         }
+
+    def _cache_key(
+        self,
+        *,
+        message: str,
+        conversation_id: str | None,
+        selected_metric_id: str | None,
+        selected_dimension_ids: list[str],
+        user_role: str,
+        limit: int,
+        execute_sql: bool,
+    ) -> str | None:
+        if not assistant_response_cache.is_cacheable_message(message):
+            return None
+        if self._conversation_has_pending_clarification(conversation_id):
+            return None
+        return assistant_response_cache.build_key(
+            message=message,
+            user_role=user_role,
+            limit=limit,
+            execute_sql=execute_sql,
+            selected_metric_id=selected_metric_id,
+            selected_dimension_ids=selected_dimension_ids,
+        )
+
+    def _conversation_has_pending_clarification(self, conversation_id: str | None) -> bool:
+        if not conversation_id:
+            return False
+        conversation = conversation_store.get_conversation(conversation_id)
+        if not conversation:
+            return False
+        turns = conversation.get("turns") or []
+        if not turns:
+            return False
+        last_response = turns[-1].get("response") or {}
+        return bool(last_response.get("requires_clarification"))
 
     def _selected_dimension_ids(self, state: LlmAssistantState, decision: dict[str, Any]) -> list[str]:
         user_selected = state.get("selected_dimension_ids") or []
@@ -647,7 +707,10 @@ class LlmGovernedAssistantGraph:
             "Only chart_query may generate SQL plus chart, and only when the user explicitly asks to plot, chart, "
             "graph, visualize, or trend data. Choose semantic assets only from provided metadata context. If table, "
             "column, metric, dimension, or response mode is unclear, ask a follow-up clarification. Never invent table "
-            "names or column names. Return only JSON with intent, action, response_mode, allow_sql, allow_chart, "
+            "names or column names. For analytical and chart requests, produce a semantic plan by selecting "
+            "selected_metric_id and selected_dimension_ids from the provided governed metadata IDs only. If a "
+            "requested attribute is restricted or the intended metric/dimension is ambiguous, block SQL and ask "
+            "for clarification. Return only JSON with intent, action, response_mode, allow_sql, allow_chart, "
             "confidence, reason, selected_metric_id, selected_dimension_ids, chart_requested, chart_type, "
             "clarification_question, clarification_options, and citations."
         )
@@ -697,6 +760,8 @@ class LlmGovernedAssistantGraph:
                 "allow_sql": decision.get("allow_sql"),
                 "allow_chart": decision.get("allow_chart"),
                 "policy_reason": decision.get("policy_reason"),
+                "sql_generation": sql_result.get("llm_generation"),
+                "chart_generation": ((chart_result or {}).get("chart_spec") or {}).get("chart_plan"),
             },
             "assumptions": sql_result.get("assumptions") or [],
             "warnings": state.get("warnings") or [],

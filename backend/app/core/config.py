@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     bedrock_model_id: str = "amazon.titan-text-express-v1"
     bedrock_temperature: float = 0.0
     bedrock_max_tokens: int = 1800
+    redis_enabled: bool = False
+    redis_url: str = "redis://localhost:6379/0"
+    redis_cache_ttl_seconds: int = 900
+    local_cache_fallback_enabled: bool = True
 
     model_config = SettingsConfigDict(
         env_file=PROJECT_ROOT / ".env",
