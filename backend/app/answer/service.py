@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -127,7 +128,7 @@ class GovernedAnswerGenerator:
         metric = query_plan["metric"]
         dimensions = query_plan.get("dimensions") or []
         metric_column = self._metric_column(result_table=result_table, metric=metric)
-        dimension_columns = [dimension["column_name"] for dimension in dimensions]
+        dimension_columns = [self._output_name(dimension["id"]) for dimension in dimensions]
         metric_label = metric["business_name"]
         dimension_label = ", ".join(dimension["business_name"] for dimension in dimensions) or "overall portfolio"
 
@@ -275,6 +276,9 @@ class GovernedAnswerGenerator:
         if value_style == "percent":
             return f"{value * 100:.2f} percentage points"
         return self._format_value(value, value_style)
+
+    def _output_name(self, governed_id: str) -> str:
+        return re.sub(r"[^a-z0-9_]+", "_", governed_id.split(".")[-1].lower()).strip("_")
 
 
 governed_answer_generator = GovernedAnswerGenerator()

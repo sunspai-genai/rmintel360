@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from backend.app.catalog.service import catalog_service
@@ -27,11 +28,11 @@ class MetadataRetriever:
         }
 
     def _candidate_groups(self, message: str) -> list[dict[str, Any]]:
-        normalized = f" {message.lower()} "
+        normalized = f" {self._normalize(message)} "
         groups = []
         seen: set[tuple[str, str]] = set()
         for synonym in catalog_service.list_synonyms():
-            phrase = synonym["phrase"].lower()
+            phrase = self._normalize(synonym["phrase"])
             if f" {phrase} " not in normalized:
                 continue
             key = (phrase, synonym["target_type"])
@@ -52,6 +53,9 @@ class MetadataRetriever:
                     }
                 )
         return groups
+
+    def _normalize(self, value: str) -> str:
+        return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
 
     def _citations(
         self,

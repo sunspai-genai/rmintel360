@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections import deque
 from dataclasses import dataclass
 from typing import Any
@@ -190,6 +191,25 @@ class SemanticResolver:
                         "options": self._top_metric_options(classification.retrieval_context),
                     }
                 ],
+                resolved=resolved,
+                governed_query_plan=None,
+                assumptions=[],
+                retrieval_context=classification.retrieval_context,
+            )
+
+        restricted_ambiguities = self._restricted_dimension_ambiguities(
+            metric=metric_resolution["metric"],
+            dimensions=dimension_resolution["dimensions"],
+        )
+        if restricted_ambiguities:
+            return SemanticResolutionResult(
+                message=message,
+                intent=resolved_intent,
+                status=ResolutionStatus.NEEDS_CLARIFICATION,
+                requires_sql=False,
+                confidence=0.74,
+                rationale="One or more requested attributes are governed as restricted, so SQL generation is blocked until the user selects an allowed alternative.",
+                ambiguities=restricted_ambiguities,
                 resolved=resolved,
                 governed_query_plan=None,
                 assumptions=[],
@@ -440,6 +460,8 @@ class SemanticResolver:
     def _find_join_path(self, base_table: str, target_table: str) -> list[dict[str, Any]] | None:
         if base_table == target_table:
             return []
+        if base_table.startswith("fact_") and target_table.startswith("fact_"):
+            return None
 
         join_paths = catalog_service.list_join_paths()
         graph: dict[str, list[tuple[str, dict[str, Any]]]] = {}
@@ -463,6 +485,80 @@ class SemanticResolver:
                 visited.add(next_table)
                 queue.append((next_table, next_path))
 
+        return None
+
+    def _restricted_dimension_ambiguities(
+        self,
+        metric: dict[str, Any],
+        dimensions: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        ambiguities = []
+        for dimension in dimensions:
+            column = self._column_metadata(table_name=dimension["table_name"], column_name=dimension["column_name"])
+            if not column or not column["restricted_flag"]:
+                continue
+            ambiguities.append(
+                {
+                    "kind": "restricted_column",
+                    "phrase": dimension["business_name"],
+                    "question": (
+                        f"`{dimension['business_name']}` maps to restricted column "
+                        f"`{dimension['table_name']}.{dimension['column_name']}` and cannot be used in generated SQL. "
+                        "Choose a governed non-restricted grouping instead."
+                    ),
+                    "options": self._safe_dimension_options(
+                        base_table=metric["base_table"],
+                        excluded_dimension_id=dimension["id"],
+                    ),
+                }
+            )
+        return ambiguities
+
+    def _safe_dimension_options(self, base_table: str, excluded_dimension_id: str) -> list[dict[str, Any]]:
+        preferred_order = {
+            "dimension.customer_segment": 0,
+            "dimension.industry": 1,
+            "dimension.customer_region": 2,
+            "dimension.market": 3,
+            "dimension.product_segment": 4,
+        }
+        options = []
+        for dimension in catalog_service.list_dimensions(certified=True):
+            dimension_object = self._dimension_object(dimension)
+            if not dimension_object or dimension_object["id"] == excluded_dimension_id:
+                continue
+            column = self._column_metadata(
+                table_name=dimension_object["table_name"],
+                column_name=dimension_object["column_name"],
+            )
+            if not column or column["restricted_flag"]:
+                continue
+            if self._find_join_path(base_table=base_table, target_table=dimension_object["table_name"]) is None:
+                continue
+            options.append(self._dimension_option(dimension_object))
+
+        options.sort(key=lambda item: (preferred_order.get(item["id"], 99), item["label"]))
+        return options[:5]
+
+    def _dimension_option(self, dimension: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "id": dimension["id"],
+            "label": dimension["business_name"],
+            "target_type": "dimension",
+            "definition": dimension["description"],
+            "table": dimension["table_name"],
+            "column": dimension["column_name"],
+            "required_columns": [dimension["column_name"]],
+            "calculation": None,
+            "subject_area": dimension["subject_area"],
+            "confidence": 1.0,
+            "certified": dimension["certified"],
+        }
+
+    def _column_metadata(self, table_name: str, column_name: str) -> dict[str, Any] | None:
+        for column in catalog_service.list_columns(table_name=table_name):
+            if column["column_name"].lower() == column_name.lower():
+                return column
         return None
 
     def _ambiguity(
@@ -615,7 +711,7 @@ class SemanticResolver:
         return deduped
 
     def _normalize(self, message: str) -> str:
-        return " ".join(message.lower().strip().split())
+        return re.sub(r"[^a-z0-9]+", " ", message.lower()).strip()
 
     def _phrase_in_message(self, phrase: str, normalized_message: str) -> bool:
         padded_phrase = f" {phrase} "

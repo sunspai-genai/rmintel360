@@ -117,17 +117,24 @@ class GovernedChartGenerator:
         columns = result_table["columns"]
         metric = query_plan["metric"]
         dimensions = query_plan.get("dimensions") or []
-        metric_column = answer_result["result_overview"].get("metric_column") or columns[-1]
-        x_column = self._x_column(columns=columns, metric_column=metric_column)
+        metric_column = self._metric_column(
+            result_table=result_table,
+            answer_result=answer_result,
+            metric=metric,
+            dimensions=dimensions,
+        )
+        x_column = self._x_column(columns=columns, metric_column=metric_column, dimensions=dimensions)
         resolved_chart_type = self._chart_type(
             requested=chart_type,
-            x_column=x_column,
+            x_column=x_column or "",
             dimensions=dimensions,
         )
 
-        x_values = [row[x_column] for row in rows]
+        x_values = [row[x_column] for row in rows] if x_column else ["Overall" for _ in rows]
         y_values = [row[metric_column] for row in rows]
         title = self._title(metric_name=metric["business_name"], dimensions=dimensions)
+        x_axis_column = x_column or "__category__"
+        x_axis_label = self._axis_label(x_column) if x_column else "Category"
 
         if resolved_chart_type == "line":
             figure = go.Figure(
@@ -153,7 +160,7 @@ class GovernedChartGenerator:
 
         figure.update_layout(
             title=title,
-            xaxis_title=self._axis_label(x_column),
+            xaxis_title=x_axis_label,
             yaxis_title=metric["business_name"],
             template="plotly_white",
             margin={"l": 56, "r": 24, "t": 72, "b": 72},
@@ -162,7 +169,7 @@ class GovernedChartGenerator:
         return {
             "chart_type": resolved_chart_type,
             "title": title,
-            "x_axis": {"column": x_column, "label": self._axis_label(x_column)},
+            "x_axis": {"column": x_axis_column, "label": x_axis_label},
             "y_axis": {"column": metric_column, "label": metric["business_name"]},
             "plotly_json": figure.to_plotly_json(),
             "data_summary": {
@@ -193,11 +200,42 @@ class GovernedChartGenerator:
             return "line"
         return "bar"
 
-    def _x_column(self, columns: list[str], metric_column: str) -> str:
+    def _metric_column(
+        self,
+        result_table: dict[str, Any],
+        answer_result: dict[str, Any],
+        metric: dict[str, Any],
+        dimensions: list[dict[str, Any]],
+    ) -> str:
+        columns = result_table["columns"]
+        dimension_columns = {dimension["column_name"] for dimension in dimensions}
+        overview_metric_column = (answer_result.get("result_overview") or {}).get("metric_column")
+        if overview_metric_column in columns and overview_metric_column not in dimension_columns:
+            return overview_metric_column
+
+        preferred = metric["id"].split(".")[-1]
+        if preferred in columns and preferred not in dimension_columns:
+            return preferred
+
+        numeric_columns = [
+            column
+            for column in columns
+            if column not in dimension_columns
+            and any(isinstance(row.get(column), (int, float)) for row in result_table["rows"])
+        ]
+        if numeric_columns:
+            return numeric_columns[-1]
+        return columns[-1]
+
+    def _x_column(self, columns: list[str], metric_column: str, dimensions: list[dict[str, Any]]) -> str | None:
+        for dimension in dimensions:
+            dimension_column = dimension["column_name"]
+            if dimension_column in columns and dimension_column != metric_column:
+                return dimension_column
         for column in columns:
             if column != metric_column:
                 return column
-        return columns[0]
+        return None
 
     def _axis_label(self, column_name: str) -> str:
         return " ".join(part.capitalize() for part in column_name.split("_"))
@@ -210,4 +248,3 @@ class GovernedChartGenerator:
 
 
 governed_chart_generator = GovernedChartGenerator()
-

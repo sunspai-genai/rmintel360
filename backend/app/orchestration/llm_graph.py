@@ -130,18 +130,20 @@ class LlmGovernedAssistantGraph:
         }
 
     def _interpret(self, state: LlmAssistantState) -> dict[str, Any]:
-        raw_decision = llm_client.invoke_json(
-            task_name="intent_semantic_resolution",
-            system_prompt=self._resolver_prompt(),
-            input_payload={
-                "user_message": state["message"],
-                "conversation_memory": state.get("memory") or {},
-                "metadata_context": state.get("metadata_context") or {},
-                "selected_metric_id": state.get("selected_metric_id"),
-                "selected_dimension_ids": state.get("selected_dimension_ids") or [],
-            },
-            fallback=lambda: self._local_resolution(state),
-        )
+        raw_decision = self._pending_choice_resolution(state)
+        if raw_decision is None:
+            raw_decision = llm_client.invoke_json(
+                task_name="intent_semantic_resolution",
+                system_prompt=self._resolver_prompt(),
+                input_payload={
+                    "user_message": state["message"],
+                    "conversation_memory": state.get("memory") or {},
+                    "metadata_context": state.get("metadata_context") or {},
+                    "selected_metric_id": state.get("selected_metric_id"),
+                    "selected_dimension_ids": state.get("selected_dimension_ids") or [],
+                },
+                fallback=lambda: self._local_resolution(state),
+            )
         decision = self._normalize_decision(raw_decision)
         policy = self._policy_for_decision(decision)
         decision.update(policy)
@@ -215,7 +217,7 @@ class LlmGovernedAssistantGraph:
 
     def _analytics(self, state: LlmAssistantState, decision: dict[str, Any]) -> dict[str, Any]:
         selected_metric_id = decision.get("selected_metric_id") or state.get("selected_metric_id")
-        selected_dimension_ids = decision.get("selected_dimension_ids") or state.get("selected_dimension_ids") or []
+        selected_dimension_ids = self._selected_dimension_ids(state=state, decision=decision)
 
         sql_result = governed_sql_service.generate_from_message(
             message=state["message"],
@@ -296,23 +298,6 @@ class LlmGovernedAssistantGraph:
             message=state["message"],
             execution_result=execution_result,
         ).to_dict()
-        answer_payload = llm_client.invoke_json(
-            task_name="answer_generation",
-            system_prompt=self._answer_prompt(),
-            input_payload={
-                "user_message": state["message"],
-                "result_table": execution_result.get("result_table"),
-                "sql": sql_result.get("generated_sql"),
-                "governed_query_plan": sql_result.get("governed_query_plan"),
-                "citations": state.get("source_citations") or [],
-            },
-            fallback=lambda: {
-                "answer": answer_result["answer"],
-                "key_points": answer_result.get("key_points") or [],
-            },
-        )
-        answer_result["answer"] = answer_payload.get("answer") or answer_result["answer"]
-        answer_result["key_points"] = answer_payload.get("key_points") or answer_result.get("key_points") or []
 
         chart_result = None
         if decision.get("chart_requested") and decision.get("allow_chart"):
@@ -335,8 +320,32 @@ class LlmGovernedAssistantGraph:
             "clarification_options": [],
             "warnings": execution_result.get("warnings") or [],
             "response_mode": "chart_answer" if chart_result else "sql_answer",
-            "graph_trace": state.get("graph_trace", []) + ["llm_interpret", "llm_sql_generate", "validate", "execute", "llm_answer"],
+            "graph_trace": state.get("graph_trace", []) + ["llm_interpret", "llm_sql_generate", "validate", "execute", "deterministic_answer"],
         }
+
+    def _selected_dimension_ids(self, state: LlmAssistantState, decision: dict[str, Any]) -> list[str]:
+        user_selected = state.get("selected_dimension_ids") or []
+        if user_selected:
+            return user_selected
+
+        exact_metadata_dimensions = self._unambiguous_metadata_dimension_ids(state)
+        if exact_metadata_dimensions:
+            return exact_metadata_dimensions
+
+        return [dimension_id for dimension_id in decision.get("selected_dimension_ids") or [] if isinstance(dimension_id, str)]
+
+    def _unambiguous_metadata_dimension_ids(self, state: LlmAssistantState) -> list[str]:
+        dimension_ids: list[str] = []
+        for group in (state.get("metadata_context") or {}).get("candidate_groups") or []:
+            if group.get("target_type") != "dimension":
+                continue
+            candidates = group.get("candidates") or []
+            if len(candidates) != 1:
+                continue
+            dimension_id = candidates[0].get("target_id")
+            if dimension_id and dimension_id not in dimension_ids:
+                dimension_ids.append(dimension_id)
+        return dimension_ids
 
     def _normalize_decision(self, decision: dict[str, Any]) -> dict[str, Any]:
         normalized = dict(decision or {})
@@ -433,7 +442,9 @@ class LlmGovernedAssistantGraph:
         pending = (state.get("memory") or {}).get("pending_clarification")
 
         if pending and not selected_metric_id:
-            selected_metric_id, selected_dimension_ids = self._resolve_pending_choice(state["message"], pending)
+            pending_choice = self._resolve_pending_choice(state["message"], pending)
+            selected_metric_id = pending_choice["metric_id"]
+            selected_dimension_ids = pending_choice["dimension_ids"]
 
         semantic_result = semantic_resolver.resolve(
             message=(pending or {}).get("message") or state["message"],
@@ -496,14 +507,46 @@ class LlmGovernedAssistantGraph:
             "citations": (state.get("metadata_context") or {}).get("citations") or [],
         }
 
-    def _resolve_pending_choice(self, message: str, pending: dict[str, Any]) -> tuple[str | None, list[str]]:
-        normalized = message.lower()
+    def _pending_choice_resolution(self, state: LlmAssistantState) -> dict[str, Any] | None:
+        if state.get("selected_metric_id") or state.get("selected_dimension_ids"):
+            return None
+        pending = (state.get("memory") or {}).get("pending_clarification")
+        if not pending:
+            return None
+        pending_choice = self._resolve_pending_choice(state["message"], pending)
+        if not pending_choice["matched"]:
+            return None
+
+        return self._local_resolution(
+            {
+                **state,
+                "selected_metric_id": pending_choice["metric_id"],
+                "selected_dimension_ids": pending_choice["dimension_ids"],
+            }
+        )
+
+    def _resolve_pending_choice(self, message: str, pending: dict[str, Any]) -> dict[str, Any]:
+        normalized = message.lower().strip()
         metric_id = None
         dimension_ids: list[str] = []
-        for ambiguity in pending.get("options") or []:
+        matched = False
+        ambiguities = pending.get("options") or []
+        allow_numbered_choice = len(ambiguities) == 1
+        for ambiguity in ambiguities:
+            options = ambiguity.get("options") or []
+            numbered_option = self._numbered_option(normalized=normalized, options=options) if allow_numbered_choice else None
+            if numbered_option:
+                option_id = numbered_option.get("id")
+                if ambiguity.get("kind") == "metric":
+                    metric_id = option_id
+                elif ambiguity.get("kind") == "dimension":
+                    dimension_ids.append(option_id)
+                matched = True
+                continue
+
             best_option_id = None
             best_score = 0
-            for option in ambiguity.get("options") or []:
+            for option in options:
                 option_id = option.get("id")
                 if not option_id:
                     continue
@@ -522,14 +565,26 @@ class LlmGovernedAssistantGraph:
                     metric_id = best_option_id
                 elif ambiguity.get("kind") == "dimension":
                     dimension_ids.append(best_option_id)
-        return metric_id, dimension_ids
+                matched = True
+        return {"metric_id": metric_id, "dimension_ids": dimension_ids, "matched": matched}
+
+    def _numbered_option(self, normalized: str, options: list[dict[str, Any]]) -> dict[str, Any] | None:
+        if not normalized.isdigit():
+            return None
+        index = int(normalized) - 1
+        if index < 0 or index >= len(options):
+            return None
+        return options[index]
 
     def _meaningful_words(self, text: str) -> set[str]:
         ignored = {"average", "balance", "metric", "dimension", "by", "the", "and", "of"}
         return {word for word in text.replace("_", " ").replace(".", " ").split() if len(word) > 2 and word not in ignored}
 
     def _clarification_question(self, ambiguities: list[dict[str, Any]]) -> str:
-        lines = ["I found more than one governed meaning. Please clarify:"]
+        if ambiguities and all(ambiguity.get("kind") == "restricted_column" for ambiguity in ambiguities):
+            lines = ["I cannot use the requested restricted attribute in generated SQL."]
+        else:
+            lines = ["I found more than one governed meaning. Please clarify:"]
         for ambiguity in ambiguities:
             lines.append(f"\n{ambiguity.get('question')}")
             for index, option in enumerate(ambiguity.get("options") or [], start=1):

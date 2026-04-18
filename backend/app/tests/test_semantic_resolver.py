@@ -75,6 +75,53 @@ def test_loan_utilization_by_month_resolves_to_monthly_trend_plan() -> None:
     ]
 
 
+def test_loan_utilization_by_month_with_punctuation_uses_month_dimension() -> None:
+    result = semantic_resolver.resolve("Plot loan utilization by month?").to_dict()
+
+    assert result["status"] == ResolutionStatus.RESOLVED
+    assert [dimension["id"] for dimension in result["governed_query_plan"]["dimensions"]] == ["dimension.year_month"]
+    assert result["governed_query_plan"]["filters"] == [
+        {"filter_id": "last_12_months", "phrase": "monthly trend default"}
+    ]
+
+
+def test_transaction_amount_by_channel_resolves_to_transaction_fact_dimension() -> None:
+    result = semantic_resolver.resolve("Show total deposit transaction amount by channel.").to_dict()
+
+    assert result["status"] == ResolutionStatus.RESOLVED
+    assert result["governed_query_plan"]["metric"]["id"] == "metric.total_deposit_transaction_amount"
+    assert [dimension["id"] for dimension in result["governed_query_plan"]["dimensions"]] == [
+        "dimension.transaction_channel"
+    ]
+    assert result["governed_query_plan"]["joins"] == []
+
+
+def test_cross_fact_metric_and_dimension_combination_requires_clarification() -> None:
+    result = semantic_resolver.resolve(
+        "Show total commercial deposits by channel",
+        selected_metric_id="metric.total_commercial_deposits",
+    ).to_dict()
+
+    assert result["status"] == ResolutionStatus.NEEDS_CLARIFICATION
+    assert [ambiguity["kind"] for ambiguity in result["ambiguities"]] == ["join_path"]
+
+
+def test_restricted_customer_name_request_is_not_silently_dropped() -> None:
+    result = semantic_resolver.resolve("List customer names with average deposit balance").to_dict()
+
+    assert result["status"] == ResolutionStatus.NEEDS_CLARIFICATION
+    assert result["requires_sql"] is False
+    assert result["governed_query_plan"] is None
+
+    ambiguity = result["ambiguities"][0]
+    assert ambiguity["kind"] == "restricted_column"
+    assert ambiguity["phrase"] == "Customer Name"
+    assert {option["id"] for option in ambiguity["options"]} >= {
+        "dimension.customer_segment",
+        "dimension.industry",
+    }
+
+
 def test_information_question_skips_sql_semantic_resolution() -> None:
     result = semantic_resolver.resolve("What does average collected balance mean?").to_dict()
 
@@ -97,4 +144,3 @@ def test_semantic_resolve_api_contract() -> None:
     payload = response.json()
     assert payload["status"] == ResolutionStatus.RESOLVED
     assert payload["governed_query_plan"]["metric"]["id"] == "metric.average_deposit_ledger_balance"
-

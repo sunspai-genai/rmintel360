@@ -45,6 +45,18 @@ def test_answer_generation_summarizes_monthly_trend() -> None:
     assert any("From 2025-" in point for point in result["key_points"])
 
 
+def test_answer_generation_uses_output_alias_for_same_fact_dimension() -> None:
+    result = governed_answer_generator.answer_from_message(
+        message="Show total deposit transaction amount by channel.",
+        user_role="technical_user",
+    ).to_dict()
+
+    assert result["status"] == AnswerStatus.ANSWERED
+    assert "None is highest" not in result["answer"]
+    assert result["result_overview"]["highest"]["label"] != "None"
+    assert result["result_overview"]["lowest"]["label"] != "None"
+
+
 def test_answer_generate_api_contract() -> None:
     response = client.post(
         "/answer/generate",
@@ -61,4 +73,3 @@ def test_answer_generate_api_contract() -> None:
     assert payload["status"] == AnswerStatus.ANSWERED
     assert payload["execution_result"]["result_table"]["row_count"] > 0
     assert payload["key_points"]
-

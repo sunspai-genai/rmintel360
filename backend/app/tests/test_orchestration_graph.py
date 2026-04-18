@@ -168,6 +168,177 @@ def test_low_confidence_llm_analytics_decision_asks_clarification(monkeypatch) -
     assert result["chart_spec"] is None
 
 
+def test_llm_chart_prefers_exact_metadata_dimension_over_wrong_llm_dimension(monkeypatch) -> None:
+    def fake_invoke_json(**_: object) -> dict[str, object]:
+        return {
+            "intent": "chart_query",
+            "action": "analytics",
+            "response_mode": "chart_answer",
+            "allow_sql": True,
+            "allow_chart": True,
+            "confidence": 0.95,
+            "selected_metric_id": "metric.average_deposit_ledger_balance",
+            "selected_dimension_ids": ["dimension.product_segment"],
+            "chart_requested": True,
+            "chart_type": "bar",
+        }
+
+    monkeypatch.setattr("backend.app.orchestration.llm_graph.llm_client.invoke_json", fake_invoke_json)
+
+    result = llm_governed_assistant_graph.invoke(
+        "Create a bar chart of average deposit ledger balance by customer segment",
+        user_role="technical_user",
+    )
+
+    assert result["status"] == OrchestrationStatus.ANSWERED
+    assert result["result_table"]["columns"] == ["customer_segment", "average_deposit_ledger_balance"]
+    assert result["chart_spec"]["x_axis"]["column"] == "customer_segment"
+    assert result["chart_spec"]["y_axis"]["column"] == "average_deposit_ledger_balance"
+    assert "GROUP BY dc.customer_segment" in result["generated_sql"]
+
+
+def test_chat_followup_preserves_original_dimensions_after_metric_clarification() -> None:
+    first_response = client.post(
+        "/chat/message",
+        json={
+            "message": "Show average balance by customer segment",
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    )
+    first_payload = first_response.json()
+
+    assert first_response.status_code == 200
+    assert first_payload["requires_clarification"] is True
+
+    second_response = client.post(
+        "/chat/message",
+        json={
+            "message": "Average Deposit Ledger Balance",
+            "conversation_id": first_payload["conversation_id"],
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    )
+    second_payload = second_response.json()
+
+    assert second_response.status_code == 200
+    assert second_payload["status"] == OrchestrationStatus.ANSWERED
+    assert second_payload["result_table"]["columns"] == ["customer_segment", "average_deposit_ledger_balance"]
+    assert "GROUP BY dc.customer_segment" in second_payload["generated_sql"]
+
+
+def test_chat_followup_accepts_numbered_metric_choice() -> None:
+    first_response = client.post(
+        "/chat/message",
+        json={
+            "message": "Show average balance by customer segment",
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    )
+    first_payload = first_response.json()
+
+    second_response = client.post(
+        "/chat/message",
+        json={
+            "message": "1",
+            "conversation_id": first_payload["conversation_id"],
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    )
+    second_payload = second_response.json()
+
+    assert second_response.status_code == 200
+    assert second_payload["status"] == OrchestrationStatus.ANSWERED
+    assert second_payload["result_table"]["columns"] == ["customer_segment", "average_deposit_ledger_balance"]
+    assert "GROUP BY dc.customer_segment" in second_payload["generated_sql"]
+
+
+def test_chat_restricted_customer_name_request_asks_for_safe_grouping() -> None:
+    response = client.post(
+        "/chat/message",
+        json={
+            "message": "List customer names with average deposit balance",
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    )
+    payload = response.json()
+
+    assert response.status_code == 200
+    assert payload["status"] == OrchestrationStatus.NEEDS_CLARIFICATION
+    assert payload["requires_clarification"] is True
+    assert payload["generated_sql"] is None
+    assert payload["result_table"] is None
+    assert "restricted" in payload["answer"]
+    assert payload["clarification_options"][0]["kind"] == "restricted_column"
+
+
+def test_chat_analytical_answer_is_deterministic_when_llm_answer_varies(monkeypatch) -> None:
+    calls = {"answer_generation": 0}
+
+    def fake_invoke_json(**kwargs: object) -> dict[str, object]:
+        if kwargs.get("task_name") == "answer_generation":
+            calls["answer_generation"] += 1
+            return {"answer": "non deterministic LLM answer", "key_points": ["unstable"]}
+        fallback = kwargs.get("fallback")
+        return fallback() if callable(fallback) else {}
+
+    monkeypatch.setattr("backend.app.orchestration.llm_graph.llm_client.invoke_json", fake_invoke_json)
+
+    first = client.post(
+        "/chat/message",
+        json={"message": "Plot loan utilization by month.", "user_role": "technical_user", "technical_mode": True},
+    ).json()
+    second = client.post(
+        "/chat/message",
+        json={"message": "Plot loan utilization by month.", "user_role": "technical_user", "technical_mode": True},
+    ).json()
+
+    assert calls["answer_generation"] == 0
+    assert first["answer"] == second["answer"]
+    assert first["result_table"]["columns"] == ["year_month", "loan_utilization_rate"]
+    assert first["chart_spec"]["x_axis"]["column"] == "year_month"
+    assert "GROUP BY dd.year_month" in first["generated_sql"]
+
+
+def test_pending_clarification_choice_bypasses_llm_and_uses_prior_context(monkeypatch) -> None:
+    first_response = client.post(
+        "/chat/message",
+        json={
+            "message": "Show average balance by customer segment",
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    )
+    first_payload = first_response.json()
+
+    def fail_if_intent_llm_called(**kwargs: object) -> dict[str, object]:
+        if kwargs.get("task_name") == "intent_semantic_resolution":
+            raise AssertionError("matched pending clarification choices should not call the intent LLM")
+        fallback = kwargs.get("fallback")
+        return fallback() if callable(fallback) else {}
+
+    monkeypatch.setattr("backend.app.orchestration.llm_graph.llm_client.invoke_json", fail_if_intent_llm_called)
+
+    second_response = client.post(
+        "/chat/message",
+        json={
+            "message": "Average Deposit Ledger Balance",
+            "conversation_id": first_payload["conversation_id"],
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    )
+    second_payload = second_response.json()
+
+    assert second_response.status_code == 200
+    assert second_payload["status"] == OrchestrationStatus.ANSWERED
+    assert second_payload["result_table"]["columns"] == ["customer_segment", "average_deposit_ledger_balance"]
+
+
 def test_unsupported_question_routes_to_unsupported_flow() -> None:
     result = governed_assistant_graph.invoke("What is the weather today?")
 

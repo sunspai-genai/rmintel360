@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from fastapi.testclient import TestClient
 
 from backend.app.chart.service import ChartStatus, governed_chart_generator
@@ -43,7 +45,32 @@ def test_chart_generation_creates_bar_chart_for_grouped_categories() -> None:
     chart = result["chart_spec"]
     assert chart["chart_type"] == "bar"
     assert chart["x_axis"]["column"] == "customer_segment"
+    assert chart["y_axis"]["column"] == "average_deposit_ledger_balance"
     assert chart["plotly_json"]["data"][0]["type"] == "bar"
+    assert chart["plotly_json"]["data"][0]["x"]
+    assert chart["plotly_json"]["data"][0]["y"]
+
+
+def test_chart_generation_uses_query_plan_dimension_when_overview_is_wrong() -> None:
+    result = governed_chart_generator.chart_from_message(
+        message="Create a bar chart of average deposit ledger balance by customer segment",
+        user_role="technical_user",
+        chart_type="bar",
+    ).to_dict()
+    answer_result = deepcopy(result["answer_result"])
+    answer_result["result_overview"]["metric_column"] = "customer_segment"
+
+    hardened_result = governed_chart_generator.chart_from_answer_result(
+        message="Create a bar chart of average deposit ledger balance by customer segment",
+        answer_result=answer_result,
+        chart_type="bar",
+    ).to_dict()
+
+    chart = hardened_result["chart_spec"]
+    assert chart["x_axis"]["column"] == "customer_segment"
+    assert chart["y_axis"]["column"] == "average_deposit_ledger_balance"
+    assert chart["plotly_json"]["layout"]["xaxis"]["title"]["text"] == "Customer Segment"
+    assert chart["plotly_json"]["layout"]["yaxis"]["title"]["text"] == "Average Deposit Ledger Balance"
 
 
 def test_chart_generate_api_contract() -> None:
@@ -61,4 +88,3 @@ def test_chart_generate_api_contract() -> None:
     assert payload["status"] == ChartStatus.GENERATED
     assert payload["chart_spec"]["chart_type"] == "line"
     assert payload["answer_result"]["key_points"]
-
