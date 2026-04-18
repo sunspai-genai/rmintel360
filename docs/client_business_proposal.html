@@ -1,0 +1,883 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Business Proposal - Governed Enterprise Data Assistant</title>
+    <style>
+      :root {
+        --ink: #102033;
+        --muted: #5e6d7d;
+        --line: #d8e3ec;
+        --soft: #f5f8fb;
+        --blue: #0b5cab;
+        --blue-dark: #073d72;
+        --green: #0f8f68;
+        --green-dark: #0b6249;
+        --gold: #a16400;
+        --panel: #ffffff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--ink);
+        background: #eef4f8;
+        line-height: 1.55;
+      }
+
+      .cover {
+        min-height: 520px;
+        display: flex;
+        align-items: center;
+        padding: 64px 34px;
+        color: #ffffff;
+        background:
+          linear-gradient(135deg, rgba(7, 61, 114, 0.98), rgba(15, 143, 104, 0.92)),
+          radial-gradient(circle at 80% 18%, rgba(255,255,255,0.16), transparent 34%);
+      }
+
+      .cover-inner,
+      main {
+        width: min(1120px, 100%);
+        margin: 0 auto;
+      }
+
+      .eyebrow {
+        margin: 0 0 12px;
+        font-weight: 800;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        opacity: 0.9;
+      }
+
+      h1 {
+        max-width: 940px;
+        margin: 0;
+        font-size: clamp(2.4rem, 6vw, 4.8rem);
+        line-height: 1.04;
+        letter-spacing: 0;
+      }
+
+      .subtitle {
+        max-width: 820px;
+        margin: 22px 0 0;
+        color: rgba(255,255,255,0.9);
+        font-size: 1.16rem;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 28px;
+      }
+
+      .pill {
+        padding: 8px 12px;
+        border: 1px solid rgba(255,255,255,0.35);
+        border-radius: 999px;
+        background: rgba(255,255,255,0.12);
+        font-weight: 700;
+        font-size: 0.92rem;
+      }
+
+      main {
+        padding: 32px 24px 72px;
+      }
+
+      section {
+        margin: 0 0 24px;
+        padding: 28px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        box-shadow: 0 10px 28px rgba(10, 45, 78, 0.06);
+      }
+
+      h2 {
+        margin: 0 0 16px;
+        color: var(--blue-dark);
+        font-size: 1.58rem;
+      }
+
+      h3 {
+        margin: 24px 0 10px;
+        color: var(--green-dark);
+        font-size: 1.12rem;
+      }
+
+      p {
+        margin: 0 0 12px;
+      }
+
+      ul,
+      ol {
+        margin: 8px 0 0;
+        padding-left: 22px;
+      }
+
+      li {
+        margin: 7px 0;
+      }
+
+      table {
+        width: 100%;
+        margin: 16px 0;
+        border-collapse: collapse;
+        font-size: 0.94rem;
+      }
+
+      th,
+      td {
+        padding: 11px 12px;
+        vertical-align: top;
+        border: 1px solid var(--line);
+      }
+
+      th {
+        color: var(--blue-dark);
+        background: #edf6fb;
+        text-align: left;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .card {
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--soft);
+      }
+
+      .card h3 {
+        margin-top: 0;
+      }
+
+      .callout {
+        margin: 16px 0;
+        padding: 15px 17px;
+        border-left: 5px solid var(--green);
+        border-radius: 6px;
+        background: #ecf8f4;
+      }
+
+      .callout.gold {
+        border-left-color: var(--gold);
+        background: #fff7e8;
+      }
+
+      .tag {
+        display: inline-block;
+        margin: 4px 6px 4px 0;
+        padding: 4px 9px;
+        border-radius: 999px;
+        color: #ffffff;
+        background: var(--blue);
+        font-size: 0.8rem;
+        font-weight: 800;
+      }
+
+      .tag.green {
+        background: var(--green);
+      }
+
+      .timeline {
+        display: grid;
+        gap: 12px;
+        margin: 18px 0;
+      }
+
+      .phase {
+        display: grid;
+        grid-template-columns: 170px 1fr;
+        gap: 14px;
+        align-items: stretch;
+      }
+
+      .phase-num {
+        padding: 14px;
+        border-radius: 8px;
+        color: #ffffff;
+        background: var(--blue);
+        font-weight: 800;
+      }
+
+      .phase-body {
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #ffffff;
+      }
+
+      .phase-body strong {
+        color: var(--green-dark);
+      }
+
+      .small {
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      footer {
+        width: min(1120px, 100%);
+        margin: 0 auto;
+        padding: 0 24px 44px;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      @media print {
+        body {
+          background: #ffffff;
+        }
+
+        .cover {
+          min-height: 440px;
+        }
+
+        section {
+          break-inside: avoid;
+          box-shadow: none;
+        }
+      }
+
+      @media (max-width: 860px) {
+        .grid,
+        .grid-3,
+        .phase {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="cover">
+      <div class="cover-inner">
+        <p class="eyebrow">Client Proposal</p>
+        <h1>Governed Enterprise Data Assistant for Commercial Banking Analytics</h1>
+        <p class="subtitle">
+          Proposal to implement an LLM-powered, governed conversational analytics assistant that enables technical and non-technical users to safely ask business questions, generate validated SQL, retrieve enterprise data, view charts, and understand governed business definitions.
+        </p>
+        <div class="meta">
+          <span class="pill">Target Domain: Commercial Banking</span>
+          <span class="pill">Architecture: LLM-first with Governance Controls</span>
+          <span class="pill">Backend: FastAPI, LangChain, LangGraph</span>
+          <span class="pill">LLM: AWS Bedrock Titan or Approved Enterprise Model</span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>1. Executive Summary</h2>
+        <p>
+          Enterprises have significant data assets across warehouses, data lakes, business glossaries, reporting layers, and lineage systems. However, business users often struggle to find the right data, understand definitions, and convert business questions into reliable SQL. Technical teams spend substantial time answering repeated data questions, validating metric definitions, writing ad hoc SQL, and explaining source lineage.
+        </p>
+        <p>
+          We propose building a governed enterprise data assistant that provides a natural language chatbot interface for commercial banking analytics. Users can ask questions such as “Plot loan utilization by month,” “What does average collected balance mean?”, or “Show total deposit transaction amount by channel.” The assistant will use governed metadata, business definitions, access policies, lineage, and LLM-based reasoning to determine whether to answer from metadata, ask a clarification question, generate validated SQL, execute a query, or build a chart.
+        </p>
+        <div class="callout">
+          The core principle is simple: the LLM can interpret, plan, generate SQL, and summarize, but governance controls decide what is allowed to run.
+        </div>
+      </section>
+
+      <section>
+        <h2>2. Problem Statement</h2>
+        <p>
+          Commercial banking organizations typically maintain complex data platforms with many fact tables, dimensions, business metrics, regulatory constraints, and sensitive customer attributes. Users need faster access to trusted data, but natural language analytics introduces risks if the assistant hallucinates columns, chooses the wrong metric, ignores lineage, or exposes restricted data.
+        </p>
+
+        <h3>Current Challenges</h3>
+        <ul>
+          <li>Business users do not always know the correct table, column, or metric name.</li>
+          <li>Similar business phrases may map to multiple governed metrics, such as ledger balance, collected balance, or available balance.</li>
+          <li>Technical users spend time writing repetitive SQL for common analytics questions.</li>
+          <li>Definitions, lineage, and access rules are often spread across different systems.</li>
+          <li>Uncontrolled LLM-generated SQL can reference wrong columns, restricted PII, or unsupported joins.</li>
+          <li>Chart generation can be incorrect if axes are not tied to result table semantics.</li>
+          <li>Repeated questions may produce inconsistent responses without caching and grounding.</li>
+        </ul>
+
+        <h3>Business Impact</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Impact Area</th>
+              <th>Current Risk</th>
+              <th>Desired Outcome</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Productivity</td>
+              <td>Analysts repeatedly write SQL and explain definitions.</td>
+              <td>Self-service analytics with reusable governed logic.</td>
+            </tr>
+            <tr>
+              <td>Data Trust</td>
+              <td>Users may choose inconsistent metrics or unofficial definitions.</td>
+              <td>Certified business metrics and definitions are used by default.</td>
+            </tr>
+            <tr>
+              <td>Governance</td>
+              <td>LLM-generated SQL may expose restricted columns.</td>
+              <td>SQL execution only after strict validation and access checks.</td>
+            </tr>
+            <tr>
+              <td>Speed to Insight</td>
+              <td>Business users wait for technical support.</td>
+              <td>Conversational answers, SQL evidence, and charts in seconds.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>3. Proposed Solution</h2>
+        <p>
+          The proposed solution is an enterprise-ready conversational data assistant that integrates with the client’s data platform, metadata catalog, business glossary, lineage repository, and access control model. The assistant will use LLM reasoning for user intent, semantic planning, SQL generation, chart planning, and final summarization, while deterministic governance layers enforce safety.
+        </p>
+
+        <div class="grid">
+          <div class="card">
+            <h3>Conversational Analytics</h3>
+            <p>Users ask natural language questions and receive concise answers, SQL, source citations, result tables, and charts.</p>
+          </div>
+          <div class="card">
+            <h3>Governed Semantic Layer</h3>
+            <p>Business terms, metrics, dimensions, joins, access policies, and lineage control what the assistant can use.</p>
+          </div>
+          <div class="card">
+            <h3>LLM-Driven SQL</h3>
+            <p>The LLM generates SQL from a governed query plan, followed by parser-based and metadata-based validation.</p>
+          </div>
+          <div class="card">
+            <h3>Clarification Workflow</h3>
+            <p>If a request is ambiguous, the assistant asks a follow-up and suggests governed metric or column choices.</p>
+          </div>
+          <div class="card">
+            <h3>Chart Generation</h3>
+            <p>The LLM plans chart type and axes; Python Plotly generates the actual chart after axis validation.</p>
+          </div>
+          <div class="card">
+            <h3>Feedback and Monitoring</h3>
+            <p>Users provide thumbs up/down feedback for quality monitoring and continuous improvement.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>4. Solution Architecture</h2>
+        <p>
+          The solution uses a layered architecture to separate user experience, orchestration, LLM reasoning, governance, data access, and monitoring.
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Layer</th>
+              <th>Component</th>
+              <th>Role</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>User Experience</td>
+              <td>Chatbot UI</td>
+              <td>Provides a clean conversational interface for users to ask questions and review answers, SQL, charts, and sources.</td>
+            </tr>
+            <tr>
+              <td>API</td>
+              <td>FastAPI</td>
+              <td>Exposes chat, metadata, SQL, execution, feedback, curation, and audit endpoints.</td>
+            </tr>
+            <tr>
+              <td>Orchestration</td>
+              <td>LangGraph</td>
+              <td>Controls the workflow: memory, metadata retrieval, LLM planning, SQL generation, validation, execution, answer, chart, audit, and cache.</td>
+            </tr>
+            <tr>
+              <td>LLM</td>
+              <td>AWS Bedrock Titan or approved enterprise LLM</td>
+              <td>Performs intent classification, semantic planning, SQL generation, SQL repair, chart planning, and final summarization.</td>
+            </tr>
+            <tr>
+              <td>Governance</td>
+              <td>Metadata, policy, and SQL validator</td>
+              <td>Blocks unapproved tables, columns, joins, restricted attributes, unsafe SQL, and low-confidence ambiguity.</td>
+            </tr>
+            <tr>
+              <td>Data Platform</td>
+              <td>Client warehouse/lakehouse</td>
+              <td>Executes validated read-only SQL against approved enterprise data sources.</td>
+            </tr>
+            <tr>
+              <td>Cache</td>
+              <td>Redis</td>
+              <td>Improves consistency and performance for repeated questions.</td>
+            </tr>
+            <tr>
+              <td>Monitoring</td>
+              <td>Audit, logs, feedback, quality dashboards</td>
+              <td>Tracks answer quality, governance evidence, SQL validation results, usage, and failure modes.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>What Makes the Architecture Safe</h3>
+        <ul>
+          <li>The assistant retrieves governed metadata before asking the LLM to make decisions.</li>
+          <li>The LLM must choose from known governed metrics, dimensions, tables, and columns.</li>
+          <li>SQL is parsed and compared against allowed tables and columns.</li>
+          <li>Restricted columns and PII attributes are blocked.</li>
+          <li>Ambiguous questions trigger clarification instead of guessing.</li>
+          <li>Every response includes source citations and audit evidence.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>5. Pre-Requisites for Client Environment</h2>
+        <p>
+          The following prerequisites should be confirmed before implementation begins. Some can be finalized during discovery, but early availability will reduce delivery risk.
+        </p>
+
+        <h3>Business and Governance Prerequisites</h3>
+        <ul>
+          <li>Identified business sponsor and product owner for the assistant.</li>
+          <li>Initial high-value use cases, such as deposits, loans, profitability, customer segmentation, and risk analytics.</li>
+          <li>Approved business glossary or source of metric definitions.</li>
+          <li>Certified metric inventory with calculation rules.</li>
+          <li>Certified dimension inventory and preferred grouping attributes.</li>
+          <li>Data owner and steward participation for validation.</li>
+          <li>PII, confidential data, and restricted attribute classification.</li>
+          <li>Access control rules by user role or persona.</li>
+        </ul>
+
+        <h3>Technical Prerequisites</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Area</th>
+              <th>Requirement</th>
+              <th>Examples</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Data Platform</td>
+              <td>Read-only access to approved analytical datasets.</td>
+              <td>Snowflake, Databricks, Redshift, BigQuery, Teradata, SQL Server.</td>
+            </tr>
+            <tr>
+              <td>Metadata Catalog</td>
+              <td>Access to table, column, metric, business term, lineage, and ownership metadata.</td>
+              <td>Collibra, Alation, Informatica, Atlan, DataHub, custom catalog.</td>
+            </tr>
+            <tr>
+              <td>Identity and Access</td>
+              <td>User authentication and role/group mapping.</td>
+              <td>SSO, SAML, OAuth/OIDC, LDAP/AD groups.</td>
+            </tr>
+            <tr>
+              <td>LLM Platform</td>
+              <td>Approved LLM endpoint and credentials.</td>
+              <td>AWS Bedrock Titan, Claude on Bedrock, internal model gateway.</td>
+            </tr>
+            <tr>
+              <td>Runtime</td>
+              <td>Container or VM runtime for backend and frontend.</td>
+              <td>EKS, ECS, OpenShift, Kubernetes, EC2, internal PaaS.</td>
+            </tr>
+            <tr>
+              <td>Cache</td>
+              <td>Redis-compatible cache for response consistency and performance.</td>
+              <td>Amazon ElastiCache Redis, enterprise Redis, internal cache service.</td>
+            </tr>
+            <tr>
+              <td>Observability</td>
+              <td>Logging, metrics, tracing, and alert integration.</td>
+              <td>CloudWatch, Splunk, Datadog, Grafana, OpenTelemetry.</td>
+            </tr>
+            <tr>
+              <td>Security Review</td>
+              <td>Review of prompts, data access, logging, PII handling, and deployment controls.</td>
+              <td>Architecture review board, model risk, information security, compliance.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Sample Environment Variables</h3>
+        <p class="small">Actual names can be aligned to the client’s configuration standard.</p>
+        <ul>
+          <li><code>BANKING_ASSISTANT_BEDROCK_ENABLED</code></li>
+          <li><code>BANKING_ASSISTANT_AWS_REGION</code></li>
+          <li><code>BANKING_ASSISTANT_BEDROCK_MODEL_ID</code></li>
+          <li><code>BANKING_ASSISTANT_REDIS_ENABLED</code></li>
+          <li><code>BANKING_ASSISTANT_REDIS_URL</code></li>
+          <li>Data platform connection secrets through approved secret manager.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>6. Implementation Plan and Timeline</h2>
+        <p>
+          A recommended production-oriented implementation can be delivered in approximately 12 to 16 weeks, depending on client metadata readiness, security review timelines, and number of integrated data platforms.
+        </p>
+
+        <div class="timeline">
+          <div class="phase">
+            <div class="phase-num">Phase 0<br />Week 0-1</div>
+            <div class="phase-body">
+              <strong>Mobilization and Discovery</strong>
+              <p>Confirm scope, stakeholders, target use cases, success metrics, architecture standards, data domains, and delivery governance.</p>
+              <p><em>Deliverables:</em> project charter, use case backlog, architecture assumptions, delivery plan.</p>
+            </div>
+          </div>
+
+          <div class="phase">
+            <div class="phase-num">Phase 1<br />Week 1-2</div>
+            <div class="phase-body">
+              <strong>Environment and Access Setup</strong>
+              <p>Provision development environment, repositories, CI/CD pipeline, model access, data platform read-only access, and Redis/cache service.</p>
+              <p><em>Deliverables:</em> working dev environment, access validation, deployment skeleton.</p>
+            </div>
+          </div>
+
+          <div class="phase">
+            <div class="phase-num">Phase 2<br />Week 2-4</div>
+            <div class="phase-body">
+              <strong>Metadata and Governance Integration</strong>
+              <p>Ingest or connect to business glossary, certified metrics, dimensions, tables, columns, lineage, access policies, synonyms, and join paths.</p>
+              <p><em>Deliverables:</em> governed metadata layer, searchable metadata index, initial stewardship review.</p>
+            </div>
+          </div>
+
+          <div class="phase">
+            <div class="phase-num">Phase 3<br />Week 4-6</div>
+            <div class="phase-body">
+              <strong>LLM Semantic Planning and Clarification</strong>
+              <p>Implement LLM-based intent classification, semantic plan generation, ambiguity detection, clarification workflow, and metadata citation behavior.</p>
+              <p><em>Deliverables:</em> governed semantic planner, clarification UX, prompt contract, test questions.</p>
+            </div>
+          </div>
+
+          <div class="phase">
+            <div class="phase-num">Phase 4<br />Week 6-8</div>
+            <div class="phase-body">
+              <strong>LLM SQL Generation and Governance Validation</strong>
+              <p>Implement dialect-specific SQL generation, SQL repair, parser validation, allowed table/column checks, restricted data blocking, and read-only execution controls.</p>
+              <p><em>Deliverables:</em> governed SQL generation service, validator, execution adapter, validation test suite.</p>
+            </div>
+          </div>
+
+          <div class="phase">
+            <div class="phase-num">Phase 5<br />Week 8-10</div>
+            <div class="phase-body">
+              <strong>Answer, Chart, and Frontend Experience</strong>
+              <p>Implement final LLM summary generation, chart planning, Python chart rendering, professional chatbot UI, source citations, SQL display, and result table rendering.</p>
+              <p><em>Deliverables:</em> end-to-end chatbot experience, chart outputs, SQL evidence, frontend feedback controls.</p>
+            </div>
+          </div>
+
+          <div class="phase">
+            <div class="phase-num">Phase 6<br />Week 10-12</div>
+            <div class="phase-body">
+              <strong>Audit, Feedback, Cache, and Observability</strong>
+              <p>Add governance audit packets, quality feedback capture, Redis cache, usage logging, failure monitoring, and dashboard-ready quality metrics.</p>
+              <p><em>Deliverables:</em> audit evidence, feedback workflow, cache integration, monitoring events.</p>
+            </div>
+          </div>
+
+          <div class="phase">
+            <div class="phase-num">Phase 7<br />Week 12-14</div>
+            <div class="phase-body">
+              <strong>Testing, Security Review, and Pilot Readiness</strong>
+              <p>Run regression tests, prompt safety tests, SQL validation tests, restricted column tests, user acceptance testing, and security/model risk review.</p>
+              <p><em>Deliverables:</em> UAT results, security evidence, pilot release candidate, operational runbook.</p>
+            </div>
+          </div>
+
+          <div class="phase">
+            <div class="phase-num">Phase 8<br />Week 14-16</div>
+            <div class="phase-body">
+              <strong>Pilot Launch and Adoption</strong>
+              <p>Launch to selected users, monitor quality, tune metadata and prompts, gather feedback, improve glossary coverage, and prepare production rollout backlog.</p>
+              <p><em>Deliverables:</em> pilot launch, adoption report, enhancement roadmap, production rollout plan.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout gold">
+          Timeline may be shortened if the client already has mature metadata APIs, certified metrics, access policies, and an approved LLM platform.
+        </div>
+      </section>
+
+      <section>
+        <h2>7. Team Size and Roles</h2>
+        <p>
+          Recommended core team size for pilot implementation is 6 to 9 people, with part-time participation from client data owners, security, and platform teams.
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Role</th>
+              <th>Recommended Allocation</th>
+              <th>Responsibilities</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Product Owner / Business Lead</td>
+              <td>0.5-1 FTE</td>
+              <td>Prioritizes use cases, validates business outcomes, coordinates stakeholder feedback.</td>
+            </tr>
+            <tr>
+              <td>Solution Architect</td>
+              <td>0.5-1 FTE</td>
+              <td>Owns target architecture, integration patterns, security alignment, and technical decisions.</td>
+            </tr>
+            <tr>
+              <td>Lead Backend Engineer</td>
+              <td>1 FTE</td>
+              <td>Builds FastAPI services, orchestration, SQL generation, execution adapters, and backend integration.</td>
+            </tr>
+            <tr>
+              <td>LLM / AI Engineer</td>
+              <td>1 FTE</td>
+              <td>Designs prompt contracts, LangGraph workflow, model integration, structured outputs, and evaluation tests.</td>
+            </tr>
+            <tr>
+              <td>Data Engineer</td>
+              <td>1 FTE</td>
+              <td>Connects data platform, metadata sources, lineage, glossary, and certified semantic layer.</td>
+            </tr>
+            <tr>
+              <td>Frontend Engineer</td>
+              <td>0.5-1 FTE</td>
+              <td>Builds chatbot UI, SQL/chart/table displays, clarification UX, and feedback controls.</td>
+            </tr>
+            <tr>
+              <td>QA / Test Engineer</td>
+              <td>0.5-1 FTE</td>
+              <td>Creates regression suite, UAT scripts, SQL safety tests, and prompt behavior tests.</td>
+            </tr>
+            <tr>
+              <td>Data Steward / Governance SME</td>
+              <td>0.5 FTE</td>
+              <td>Validates definitions, metric mappings, restricted attributes, business rules, and data lineage.</td>
+            </tr>
+            <tr>
+              <td>DevOps / Platform Engineer</td>
+              <td>0.5 FTE</td>
+              <td>Supports CI/CD, deployment, secrets, infrastructure, observability, and environment readiness.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Minimum Pilot Team</h3>
+        <p>
+          For a constrained pilot, the team can operate with 5 core contributors: product owner, full-stack/backend engineer, LLM engineer, data engineer, and data governance SME, with shared QA and platform support.
+        </p>
+      </section>
+
+      <section>
+        <h2>8. Key Deliverables</h2>
+        <div class="grid">
+          <div class="card">
+            <h3>Working Assistant</h3>
+            <p>Conversational chatbot for governed commercial banking analytics.</p>
+          </div>
+          <div class="card">
+            <h3>Metadata Integration</h3>
+            <p>Searchable metadata layer with glossary, metrics, dimensions, columns, joins, lineage, and access flags.</p>
+          </div>
+          <div class="card">
+            <h3>Governed SQL Service</h3>
+            <p>LLM-generated SQL with strict validation, repair, and read-only execution controls.</p>
+          </div>
+          <div class="card">
+            <h3>Chart and Answer Service</h3>
+            <p>LLM-generated summaries and chart planning with validated Python Plotly rendering.</p>
+          </div>
+          <div class="card">
+            <h3>Audit and Monitoring</h3>
+            <p>Source citations, validation evidence, user feedback, quality metrics, and operational logs.</p>
+          </div>
+          <div class="card">
+            <h3>Testing and Runbook</h3>
+            <p>Regression tests, UAT scenarios, deployment guide, support runbook, and enhancement backlog.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>9. Success Metrics</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>Target for Pilot</th>
+              <th>Measurement Method</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Answer Accuracy</td>
+              <td>85-90%+ on approved evaluation set</td>
+              <td>Business SME review and automated regression tests.</td>
+            </tr>
+            <tr>
+              <td>SQL Governance Pass Rate</td>
+              <td>100% of executed SQL passes validator</td>
+              <td>SQL validation logs and audit reports.</td>
+            </tr>
+            <tr>
+              <td>Restricted Data Leakage</td>
+              <td>0 known restricted column exposures</td>
+              <td>Restricted attribute tests and audit monitoring.</td>
+            </tr>
+            <tr>
+              <td>Clarification Quality</td>
+              <td>Assistant asks clarification for ambiguous questions</td>
+              <td>Ambiguous question test set and feedback review.</td>
+            </tr>
+            <tr>
+              <td>User Satisfaction</td>
+              <td>70%+ positive feedback in pilot</td>
+              <td>Thumbs up/down and issue reason tracking.</td>
+            </tr>
+            <tr>
+              <td>Time to Insight</td>
+              <td>Reduction in repetitive analyst requests</td>
+              <td>Baseline ticket/request comparison and pilot survey.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>10. Risks and Mitigation</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Risk</th>
+              <th>Impact</th>
+              <th>Mitigation</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Incomplete metadata</td>
+              <td>Assistant may ask too many clarifying questions or support limited coverage.</td>
+              <td>Prioritize high-value certified metrics and glossary terms for pilot.</td>
+            </tr>
+            <tr>
+              <td>LLM hallucination</td>
+              <td>Incorrect SQL or unsupported explanation.</td>
+              <td>Strict structured outputs, metadata grounding, SQL validator, citations, and result-grounded summaries.</td>
+            </tr>
+            <tr>
+              <td>Restricted data exposure</td>
+              <td>Compliance and privacy risk.</td>
+              <td>Column-level restricted flags, role-based access policy checks, and blocked SQL execution.</td>
+            </tr>
+            <tr>
+              <td>Slow platform/security approval</td>
+              <td>Timeline delay.</td>
+              <td>Start security review and model approval in Phase 0.</td>
+            </tr>
+            <tr>
+              <td>Ambiguous business terms</td>
+              <td>Wrong metric or column selection.</td>
+              <td>Clarification workflow and governed option suggestions.</td>
+            </tr>
+            <tr>
+              <td>User adoption risk</td>
+              <td>Low usage despite technical success.</td>
+              <td>Pilot with targeted users, training, feedback loop, and high-value use cases.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>11. Recommended Pilot Scope</h2>
+        <p>
+          For the initial pilot, we recommend focusing on a controlled commercial banking analytics domain with a small set of high-value subject areas.
+        </p>
+
+        <h3>Suggested Pilot Data Domains</h3>
+        <span class="tag">Deposits</span>
+        <span class="tag">Loans</span>
+        <span class="tag">Customer Segments</span>
+        <span class="tag">Relationship Profitability</span>
+        <span class="tag">Transaction Channels</span>
+        <span class="tag">Monthly Trends</span>
+
+        <h3>Suggested Pilot Questions</h3>
+        <ul>
+          <li>What does average collected balance mean?</li>
+          <li>Show average deposit ledger balance by customer segment.</li>
+          <li>Plot loan utilization by month.</li>
+          <li>Show total deposit transaction amount by channel.</li>
+          <li>Create a bar chart of relationship profit by customer segment.</li>
+          <li>Which table contains deposit transaction channel?</li>
+          <li>Where does loan utilization rate come from?</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>12. Commercial Assumptions</h2>
+        <p>
+          Final estimates should be confirmed after discovery. The following assumptions are used for the proposed timeline.
+        </p>
+        <ul>
+          <li>Client provides timely read-only access to target data and metadata sources.</li>
+          <li>Client identifies business SMEs and data stewards for metric validation.</li>
+          <li>Client has an approved LLM platform or can approve one during early phases.</li>
+          <li>Initial pilot is limited to selected commercial banking subject areas.</li>
+          <li>Production deployment requirements may add timeline for enterprise security, model risk, and infrastructure reviews.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>13. Next Steps</h2>
+        <ol>
+          <li>Confirm pilot business sponsor, use cases, and success criteria.</li>
+          <li>Identify target enterprise data platform and metadata/catalog systems.</li>
+          <li>Review security, model access, and deployment requirements.</li>
+          <li>Select pilot metrics, dimensions, and restricted attributes.</li>
+          <li>Run a 1-2 week discovery and readiness assessment.</li>
+          <li>Finalize delivery timeline, staffing, and implementation backlog.</li>
+        </ol>
+
+        <div class="callout">
+          Recommended immediate action: schedule a discovery workshop with business, data governance, security, platform, and analytics stakeholders to validate prerequisites and pilot scope.
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>
+        Prepared as a client-facing proposal template for the Governed Enterprise Data Assistant. This document can be tailored with client name, commercial estimates, branding, and specific platform selections.
+      </p>
+    </footer>
+  </body>
+</html>
+

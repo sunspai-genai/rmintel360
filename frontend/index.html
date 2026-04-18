@@ -9,27 +9,63 @@
     <script src="/assets/app.js" defer></script>
   </head>
   <body>
-    <main class="chat-shell">
-      <header class="chat-header">
-        <div>
-          <p>Commercial Banking Analytics</p>
-          <h1>CFG Enterprise Data Bot</h1>
+    <main class="app-shell">
+      <aside class="sidebar" aria-label="Recent conversations">
+        <div class="sidebar-brand">
+          <span class="brand-mark">CFG</span>
+          <div>
+            <p>Enterprise AI</p>
+            <strong>Data Assistant</strong>
+          </div>
         </div>
-        <div id="healthStatus" class="health">Checking</div>
-      </header>
+        <button id="newChatButton" class="new-chat" type="button">New conversation</button>
+        <section class="recent-panel">
+          <div class="panel-heading">
+            <span>Recent Conversations</span>
+          </div>
+          <div id="recentConversations" class="recent-list"></div>
+        </section>
+      </aside>
 
-      <section id="messages" class="messages" aria-live="polite" aria-label="Chat conversation"></section>
+      <section class="chat-shell">
+        <header class="chat-header">
+          <div class="title-block">
+            <p>Governed Commercial Banking Analytics Assistant</p>
+            <h1>CFG Enterprise Data Bot</h1>
+          </div>
+          <div class="status-strip" aria-label="Application status">
+            <div class="status-card">
+              <span>Data</span>
+              <strong id="healthStatus">Checking</strong>
+            </div>
+            <div class="status-card">
+              <span>Governance</span>
+              <strong>Active</strong>
+            </div>
+            <div class="status-card">
+              <span>LLM</span>
+              <strong id="llmStatus">Ready</strong>
+            </div>
+            <div class="status-card">
+              <span>Cache</span>
+              <strong id="cacheStatus">Available</strong>
+            </div>
+          </div>
+        </header>
 
-      <form id="chatForm" class="composer">
-        <label class="sr-only" for="messageInput">Message</label>
-        <textarea
-          id="messageInput"
-          rows="2"
-          placeholder="Ask a banking data question, request SQL-backed analysis, or ask for a chart"
-          required
-        ></textarea>
-        <button id="sendButton" type="submit">Send</button>
-      </form>
+        <section id="messages" class="messages" aria-live="polite" aria-label="Chat conversation"></section>
+
+        <form id="chatForm" class="composer">
+          <label class="sr-only" for="messageInput">Message</label>
+          <textarea
+            id="messageInput"
+            rows="2"
+            placeholder="Ask a governed banking question, request SQL-backed analysis, or ask for a chart"
+            required
+          ></textarea>
+          <button id="sendButton" type="submit">Send</button>
+        </form>
+      </section>
     </main>
   </body>
 </html>
