@@ -1,5 +1,5 @@
 const state = {
-  conversationId: localStorage.getItem("bankingAssistantConversationId"),
+  conversationId: sessionStorage.getItem("bankingAssistantConversationId"),
   chartCounter: 0,
   recentConversations: loadRecentConversations(),
 };
@@ -32,11 +32,23 @@ function bindControls() {
     sendChat(message);
   });
 
-  elements.newChat.addEventListener("click", () => {
+  elements.newChat.addEventListener("click", async () => {
+    setBusy(true);
     state.conversationId = null;
-    localStorage.removeItem("bankingAssistantConversationId");
+    state.recentConversations = [];
+    sessionStorage.removeItem("bankingAssistantConversationId");
+    sessionStorage.removeItem("bankingAssistantRecentConversations");
+    renderRecentConversations();
+    elements.cacheStatus.textContent = "Available";
     renderWelcome();
-    elements.input.focus();
+    try {
+      await fetch("/chat/session/reset", { method: "POST" });
+    } catch (error) {
+      elements.cacheStatus.textContent = "Reset pending";
+    } finally {
+      setBusy(false);
+      elements.input.focus();
+    }
   });
 }
 
@@ -78,7 +90,7 @@ async function sendChat(message) {
     if (!response.ok) throw new Error(payload.detail || `Request failed with ${response.status}`);
     state.conversationId = payload.conversation_id || state.conversationId;
     if (state.conversationId) {
-      localStorage.setItem("bankingAssistantConversationId", state.conversationId);
+      sessionStorage.setItem("bankingAssistantConversationId", state.conversationId);
     }
     updateRuntimeBadges(payload);
     removeThinkingMessage(loading);
@@ -535,14 +547,14 @@ function updateRuntimeBadges(payload) {
 
 function loadRecentConversations() {
   try {
-    return JSON.parse(localStorage.getItem("bankingAssistantRecentConversations") || "[]");
+    return JSON.parse(sessionStorage.getItem("bankingAssistantRecentConversations") || "[]");
   } catch (error) {
     return [];
   }
 }
 
 function saveRecentConversations() {
-  localStorage.setItem("bankingAssistantRecentConversations", JSON.stringify(state.recentConversations.slice(0, 8)));
+  sessionStorage.setItem("bankingAssistantRecentConversations", JSON.stringify(state.recentConversations.slice(0, 8)));
 }
 
 function addRecentConversation(message) {

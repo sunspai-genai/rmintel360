@@ -75,6 +75,13 @@ METADATA_TERMS = [
     "grain",
     "refresh",
     "catalog",
+    "metric",
+    "metrics",
+    "certified metric",
+    "certified metrics",
+    "join",
+    "joins",
+    "join path",
 ]
 DEFINITION_TERMS = [
     "what is",

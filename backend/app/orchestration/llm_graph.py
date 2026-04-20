@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+from collections import deque
 from typing import Any, Dict, List, Optional, TypedDict
 
 from langgraph.graph import END, StateGraph
@@ -61,6 +63,9 @@ class LlmAssistantState(TypedDict, total=False):
     clarification_options: List[Dict[str, Any]]
     source_citations: List[Dict[str, Any]]
     response_mode: str
+    pending_task: Dict[str, Any]
+    cached_response: Dict[str, Any]
+    resolved_cache_key: str
     graph_trace: List[str]
     warnings: List[str]
 
@@ -92,27 +97,6 @@ class LlmGovernedAssistantGraph:
         execute_sql: bool = True,
         **_: Any,
     ) -> dict[str, Any]:
-        cache_key = self._cache_key(
-            message=message,
-            conversation_id=conversation_id,
-            selected_metric_id=selected_metric_id,
-            selected_dimension_ids=selected_dimension_ids or [],
-            user_role=user_role,
-            limit=limit,
-            execute_sql=execute_sql,
-        )
-        if cache_key:
-            cached = assistant_response_cache.get(cache_key)
-            if cached:
-                cached["message"] = message
-                cached["conversation_id"] = conversation_id
-                cached["graph_trace"] = (cached.get("graph_trace") or []) + ["cache_hit"]
-                llm_trace = dict(cached.get("llm_trace") or {})
-                llm_trace["cache_status"] = "hit"
-                llm_trace["cache_backend"] = (cached.get("cache") or {}).get("backend")
-                cached["llm_trace"] = llm_trace
-                return cached
-
         state: LlmAssistantState = {
             "message": message,
             "conversation_id": conversation_id,
@@ -125,13 +109,14 @@ class LlmGovernedAssistantGraph:
             "warnings": [],
         }
         response = self._response(self._graph.invoke(state))
-        if cache_key and response.get("status") in {OrchestrationStatus.ANSWERED, OrchestrationStatus.SQL_GENERATED}:
-            assistant_response_cache.set(cache_key, response)
+        resolved_cache_key = response.pop("_resolved_cache_key", None)
+        if resolved_cache_key and self._is_cacheable_final_response(response):
+            assistant_response_cache.set(resolved_cache_key, response)
             response.setdefault("llm_trace", {})["cache_status"] = "stored"
         return response
 
     def _memory(self, state: LlmAssistantState) -> dict[str, Any]:
-        memory: dict[str, Any] = {"previous_turns": [], "pending_clarification": None}
+        memory: dict[str, Any] = {"previous_turns": [], "pending_clarification": None, "pending_task": None}
         conversation_id = state.get("conversation_id")
         if conversation_id:
             conversation = conversation_store.get_conversation(conversation_id)
@@ -141,9 +126,13 @@ class LlmGovernedAssistantGraph:
                 if turns:
                     last_response = turns[-1].get("response") or {}
                     if last_response.get("requires_clarification"):
+                        pending_task = last_response.get("pending_task") or self._pending_task_from_response(last_response)
+                        memory["pending_task"] = pending_task
                         memory["pending_clarification"] = {
-                            "message": last_response.get("message"),
-                            "options": last_response.get("clarification_options") or [],
+                            "message": (pending_task or {}).get("original_message") or last_response.get("message"),
+                            "options": (pending_task or {}).get("clarification_options")
+                            or last_response.get("clarification_options")
+                            or [],
                         }
         return {"memory": memory, "graph_trace": state.get("graph_trace", []) + ["memory"]}
 
@@ -183,12 +172,17 @@ class LlmGovernedAssistantGraph:
                 "next_action": "ask_follow_up_clarification",
                 "requires_clarification": True,
                 "clarification_options": decision.get("clarification_options") or [],
+                "pending_task": decision.get("pending_task") or {},
                 "response_mode": "clarification",
                 "graph_trace": state.get("graph_trace", []) + ["llm_interpret", "intent_policy_clarification"],
             }
 
         if decision.get("action") == "information":
-            answer = self._information_answer(decision=decision, context=state.get("metadata_context") or {})
+            answer = self._information_answer(
+                message=state["message"],
+                decision=decision,
+                context=state.get("metadata_context") or {},
+            )
             return {
                 "llm_decision": decision,
                 "status": OrchestrationStatus.ANSWERED,
@@ -208,6 +202,7 @@ class LlmGovernedAssistantGraph:
                 "next_action": "ask_follow_up_clarification",
                 "requires_clarification": True,
                 "clarification_options": decision.get("clarification_options") or [],
+                "pending_task": decision.get("pending_task") or {},
                 "response_mode": "clarification",
                 "graph_trace": state.get("graph_trace", []) + ["llm_interpret", "clarification"],
             }
@@ -232,6 +227,7 @@ class LlmGovernedAssistantGraph:
                 "next_action": "clarify_response_mode_before_sql",
                 "requires_clarification": True,
                 "clarification_options": self._response_mode_options(),
+                "pending_task": decision.get("pending_task") or {},
                 "response_mode": "clarification",
                 "graph_trace": state.get("graph_trace", []) + ["llm_interpret", "intent_policy_blocked_sql"],
             }
@@ -242,11 +238,16 @@ class LlmGovernedAssistantGraph:
         return state
 
     def _analytics(self, state: LlmAssistantState, decision: dict[str, Any]) -> dict[str, Any]:
+        preflight = self._preflight_clarification(state=state, decision=decision)
+        if preflight:
+            return preflight
+
+        analytics_message = decision.get("analytics_message") or state["message"]
         selected_metric_id = decision.get("selected_metric_id") or state.get("selected_metric_id")
         selected_dimension_ids = self._selected_dimension_ids(state=state, decision=decision)
 
         sql_result = governed_sql_service.generate_from_message(
-            message=state["message"],
+            message=analytics_message,
             intent="chart_query" if decision.get("chart_requested") else "analytical_query",
             selected_metric_id=selected_metric_id,
             selected_dimension_ids=selected_dimension_ids,
@@ -257,14 +258,21 @@ class LlmGovernedAssistantGraph:
 
         if sql_result["status"] == SqlServiceStatus.NEEDS_CLARIFICATION:
             semantic_result = sql_result["semantic_result"]
+            pending_task = self._pending_task_from_semantic(
+                semantic_result=semantic_result,
+                original_message=state["message"],
+                chart_requested=bool(decision.get("chart_requested")),
+                chart_type=decision.get("chart_type"),
+            )
             return {
                 "llm_decision": decision,
                 "sql_result": sql_result,
                 "status": OrchestrationStatus.NEEDS_CLARIFICATION,
-                "final_answer": self._clarification_question(semantic_result.get("ambiguities") or []),
+                "final_answer": self._pending_task_clarification_question(pending_task),
                 "next_action": "ask_follow_up_clarification",
                 "requires_clarification": True,
                 "clarification_options": semantic_result.get("ambiguities") or [],
+                "pending_task": pending_task,
                 "response_mode": "clarification",
                 "graph_trace": state.get("graph_trace", []) + ["llm_interpret", "sql_plan_blocked"],
             }
@@ -282,6 +290,30 @@ class LlmGovernedAssistantGraph:
                 "graph_trace": state.get("graph_trace", []) + ["llm_interpret", "sql_invalid"],
             }
 
+        resolved_cache_key = self._resolved_cache_key(
+            state=state,
+            decision=decision,
+            sql_result=sql_result,
+            analytics_message=analytics_message,
+        )
+        if resolved_cache_key and state.get("execute_sql", True):
+            cached = assistant_response_cache.get(resolved_cache_key)
+            if cached:
+                cached["message"] = state["message"]
+                cached["conversation_id"] = state.get("conversation_id")
+                cached["graph_trace"] = state.get("graph_trace", []) + [
+                    "llm_interpret",
+                    "llm_semantic_plan",
+                    "llm_sql_generate",
+                    "resolved_cache_hit",
+                ]
+                llm_trace = dict(cached.get("llm_trace") or {})
+                llm_trace["cache_status"] = "hit"
+                llm_trace["cache_backend"] = (cached.get("cache") or {}).get("backend")
+                cached["llm_trace"] = llm_trace
+                cached.setdefault("pending_task", {})
+                return {"cached_response": cached}
+
         if not state.get("execute_sql", True):
             return {
                 "llm_decision": decision,
@@ -292,11 +324,12 @@ class LlmGovernedAssistantGraph:
                 "requires_clarification": False,
                 "clarification_options": [],
                 "response_mode": decision["response_mode"],
+                "resolved_cache_key": resolved_cache_key,
                 "graph_trace": state.get("graph_trace", []) + ["llm_interpret", "llm_sql_generate"],
             }
 
         execution_result = governed_query_executor.execute_sql_result(
-            message=state["message"],
+            message=analytics_message,
             sql_result=sql_result,
             limit=state.get("limit", 100),
         ).to_dict()
@@ -317,14 +350,14 @@ class LlmGovernedAssistantGraph:
             }
 
         answer_result = governed_answer_generator.answer_from_execution(
-            message=state["message"],
+            message=analytics_message,
             execution_result=execution_result,
         ).to_dict()
 
         chart_result = None
         if decision.get("chart_requested") and decision.get("allow_chart"):
             chart_result = governed_chart_generator.chart_from_answer_result(
-                message=state["message"],
+                message=analytics_message,
                 answer_result=answer_result,
                 chart_type=decision.get("chart_type"),
             ).to_dict()
@@ -342,9 +375,48 @@ class LlmGovernedAssistantGraph:
             "clarification_options": [],
             "warnings": execution_result.get("warnings") or [],
             "response_mode": "chart_answer" if chart_result else "sql_answer",
+            "resolved_cache_key": resolved_cache_key,
             "graph_trace": state.get("graph_trace", [])
             + ["llm_interpret", "llm_semantic_plan", "llm_sql_generate", "validate", "execute", "llm_answer"]
             + (["llm_chart_plan", "python_plotly_build"] if chart_result else []),
+        }
+
+    def _preflight_clarification(self, state: LlmAssistantState, decision: dict[str, Any]) -> dict[str, Any] | None:
+        if state.get("selected_metric_id") or state.get("selected_dimension_ids"):
+            return None
+        if (state.get("memory") or {}).get("pending_clarification"):
+            return None
+
+        semantic_result = semantic_resolver.resolve(
+            message=state["message"],
+            intent="chart_query" if decision.get("chart_requested") else "analytical_query",
+        ).to_dict()
+        ambiguities = semantic_result.get("ambiguities") or []
+        if semantic_result["status"] != ResolutionStatus.NEEDS_CLARIFICATION or not ambiguities:
+            return None
+        pending_task = self._pending_task_from_semantic(
+            semantic_result=semantic_result,
+            original_message=state["message"],
+            chart_requested=bool(decision.get("chart_requested")),
+            chart_type=decision.get("chart_type"),
+        )
+
+        return {
+            "llm_decision": decision,
+            "sql_result": {
+                "semantic_result": semantic_result,
+                "generated_sql": None,
+                "validation": None,
+                "assumptions": semantic_result.get("assumptions") or [],
+            },
+            "status": OrchestrationStatus.NEEDS_CLARIFICATION,
+            "final_answer": self._pending_task_clarification_question(pending_task),
+            "next_action": "ask_follow_up_clarification",
+            "requires_clarification": True,
+            "clarification_options": ambiguities,
+            "pending_task": pending_task,
+            "response_mode": "clarification",
+            "graph_trace": state.get("graph_trace", []) + ["llm_interpret", "preflight_clarification"],
         }
 
     def _cache_key(
@@ -364,6 +436,7 @@ class LlmGovernedAssistantGraph:
             return None
         return assistant_response_cache.build_key(
             message=message,
+            conversation_id=conversation_id,
             user_role=user_role,
             limit=limit,
             execute_sql=execute_sql,
@@ -383,6 +456,45 @@ class LlmGovernedAssistantGraph:
         last_response = turns[-1].get("response") or {}
         return bool(last_response.get("requires_clarification"))
 
+    def _resolved_cache_key(
+        self,
+        *,
+        state: LlmAssistantState,
+        decision: dict[str, Any],
+        sql_result: dict[str, Any],
+        analytics_message: str,
+    ) -> str | None:
+        if not assistant_response_cache.is_cacheable_message(analytics_message):
+            return None
+        semantic_result = sql_result.get("semantic_result") or {}
+        if semantic_result.get("status") != ResolutionStatus.RESOLVED:
+            return None
+        plan = semantic_result.get("governed_query_plan") or {}
+        metric = plan.get("metric") or {}
+        dimensions = plan.get("dimensions") or []
+        return assistant_response_cache.build_resolved_plan_key(
+            message=analytics_message,
+            conversation_id=state.get("conversation_id"),
+            user_role=state.get("user_role", "business_user"),
+            limit=state.get("limit", 100),
+            execute_sql=state.get("execute_sql", True),
+            intent=semantic_result.get("intent") or decision.get("intent"),
+            response_mode=decision.get("response_mode"),
+            metric_id=metric.get("id"),
+            dimension_ids=[dimension["id"] for dimension in dimensions if dimension.get("id")],
+            filters=plan.get("filters") or [],
+            chart_requested=bool(decision.get("chart_requested")),
+            chart_type=decision.get("chart_type"),
+            generated_sql=sql_result.get("generated_sql"),
+        )
+
+    def _is_cacheable_final_response(self, response: dict[str, Any]) -> bool:
+        return (
+            response.get("status") in {OrchestrationStatus.ANSWERED, OrchestrationStatus.SQL_GENERATED}
+            and not response.get("requires_clarification")
+            and bool(response.get("generated_sql"))
+        )
+
     def _selected_dimension_ids(self, state: LlmAssistantState, decision: dict[str, Any]) -> list[str]:
         user_selected = state.get("selected_dimension_ids") or []
         if user_selected:
@@ -396,15 +508,21 @@ class LlmGovernedAssistantGraph:
 
     def _unambiguous_metadata_dimension_ids(self, state: LlmAssistantState) -> list[str]:
         dimension_ids: list[str] = []
+        chosen_phrases: list[str] = []
         for group in (state.get("metadata_context") or {}).get("candidate_groups") or []:
             if group.get("target_type") != "dimension":
                 continue
             candidates = group.get("candidates") or []
             if len(candidates) != 1:
                 continue
+            phrase = str(group.get("phrase") or "").lower()
+            if phrase and any(phrase in chosen_phrase and phrase != chosen_phrase for chosen_phrase in chosen_phrases):
+                continue
             dimension_id = candidates[0].get("target_id")
             if dimension_id and dimension_id not in dimension_ids:
                 dimension_ids.append(dimension_id)
+                if phrase:
+                    chosen_phrases.append(phrase)
         return dimension_ids
 
     def _normalize_decision(self, decision: dict[str, Any]) -> dict[str, Any]:
@@ -539,6 +657,12 @@ class LlmGovernedAssistantGraph:
 
         if semantic_result["status"] == ResolutionStatus.NEEDS_CLARIFICATION:
             ambiguities = semantic_result.get("ambiguities") or []
+            pending_task = self._pending_task_from_semantic(
+                semantic_result=semantic_result,
+                original_message=(pending or {}).get("message") or state["message"],
+                chart_requested=semantic_result["intent"] == "chart_query",
+                chart_type=None,
+            )
             return {
                 "action": "clarify",
                 "intent": semantic_result["intent"],
@@ -546,8 +670,9 @@ class LlmGovernedAssistantGraph:
                 "allow_sql": False,
                 "allow_chart": False,
                 "confidence": semantic_result.get("confidence", 0.72),
-                "clarification_question": self._clarification_question(ambiguities),
+                "clarification_question": self._pending_task_clarification_question(pending_task),
                 "clarification_options": ambiguities,
+                "pending_task": pending_task,
                 "chart_requested": semantic_result["intent"] == "chart_query",
                 "citations": (state.get("metadata_context") or {}).get("citations") or [],
             }
@@ -570,6 +695,9 @@ class LlmGovernedAssistantGraph:
     def _pending_choice_resolution(self, state: LlmAssistantState) -> dict[str, Any] | None:
         if state.get("selected_metric_id") or state.get("selected_dimension_ids"):
             return None
+        pending_task = (state.get("memory") or {}).get("pending_task")
+        if pending_task and not self._is_clear_topic_change(state["message"]):
+            return self._resolve_pending_task_followup(state=state, pending_task=pending_task)
         pending = (state.get("memory") or {}).get("pending_clarification")
         if not pending:
             return None
@@ -584,6 +712,297 @@ class LlmGovernedAssistantGraph:
                 "selected_dimension_ids": pending_choice["dimension_ids"],
             }
         )
+
+    def _resolve_pending_task_followup(self, state: LlmAssistantState, pending_task: dict[str, Any]) -> dict[str, Any]:
+        original_message = pending_task.get("original_message") or state["message"]
+        intent = pending_task.get("intent") or "analytical_query"
+        selected_metric_id = pending_task.get("resolved_metric_id")
+        selected_dimension_ids = list(pending_task.get("resolved_dimension_ids") or [])
+
+        selection = self._resolve_followup_selection(
+            message=state["message"],
+            clarification_options=pending_task.get("clarification_options") or [],
+        )
+        if selection.get("metric_id"):
+            selected_metric_id = selection["metric_id"]
+        selected_dimension_ids = self._merge_pending_dimension_selection(
+            current_dimension_ids=selected_dimension_ids,
+            selected_dimension_ids=selection.get("dimension_ids") or [],
+            pending_task=pending_task,
+        )
+
+        semantic_result = semantic_resolver.resolve(
+            message=original_message,
+            intent=intent,
+            selected_metric_id=selected_metric_id,
+            selected_dimension_ids=selected_dimension_ids,
+        ).to_dict()
+
+        if semantic_result["status"] == ResolutionStatus.RESOLVED:
+            plan = semantic_result["governed_query_plan"] or {}
+            return {
+                "action": "analytics",
+                "intent": semantic_result["intent"],
+                "response_mode": "chart_answer" if pending_task.get("chart_requested") else "sql_answer",
+                "allow_sql": True,
+                "allow_chart": bool(pending_task.get("chart_requested")),
+                "confidence": semantic_result.get("confidence", 0.91),
+                "selected_metric_id": (plan.get("metric") or {}).get("id"),
+                "selected_dimension_ids": [dimension["id"] for dimension in plan.get("dimensions") or []],
+                "analytics_message": original_message,
+                "chart_requested": bool(pending_task.get("chart_requested")),
+                "chart_type": pending_task.get("chart_type"),
+                "citations": (state.get("metadata_context") or {}).get("citations") or [],
+            }
+
+        pending_task = self._pending_task_from_semantic(
+            semantic_result=semantic_result,
+            original_message=original_message,
+            chart_requested=bool(pending_task.get("chart_requested")),
+            chart_type=pending_task.get("chart_type"),
+        )
+        return {
+            "action": "clarify",
+            "intent": semantic_result["intent"],
+            "response_mode": "clarification",
+            "allow_sql": False,
+            "allow_chart": False,
+            "confidence": semantic_result.get("confidence", 0.72),
+            "clarification_question": self._pending_task_clarification_question(
+                pending_task,
+                selection=selection,
+            ),
+            "clarification_options": semantic_result.get("ambiguities") or [],
+            "pending_task": pending_task,
+            "chart_requested": bool(pending_task.get("chart_requested")),
+            "chart_type": pending_task.get("chart_type"),
+            "citations": (state.get("metadata_context") or {}).get("citations") or [],
+        }
+
+    def _merge_pending_dimension_selection(
+        self,
+        *,
+        current_dimension_ids: list[str],
+        selected_dimension_ids: list[str],
+        pending_task: dict[str, Any],
+    ) -> list[str]:
+        if not selected_dimension_ids:
+            return current_dimension_ids
+
+        has_open_dimension_choice = any(
+            ambiguity.get("kind") == "dimension"
+            for ambiguity in pending_task.get("clarification_options") or []
+        )
+        if not has_open_dimension_choice:
+            return self._dedupe_strings(selected_dimension_ids)
+
+        merged = list(current_dimension_ids)
+        for dimension_id in selected_dimension_ids:
+            if dimension_id not in merged:
+                merged.append(dimension_id)
+        return merged
+
+    def _dedupe_strings(self, values: list[str]) -> list[str]:
+        deduped = []
+        seen = set()
+        for value in values:
+            if value in seen:
+                continue
+            seen.add(value)
+            deduped.append(value)
+        return deduped
+
+    def _resolve_followup_selection(
+        self,
+        message: str,
+        clarification_options: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        pending_choice = self._resolve_pending_choice(message, {"options": clarification_options})
+        metric_id = pending_choice["metric_id"]
+        dimension_ids = list(pending_choice["dimension_ids"])
+
+        if not metric_id:
+            metric_id = self._catalog_selection_id(message=message, target_type="metric")
+        dimension_id = self._catalog_selection_id(message=message, target_type="dimension")
+        if dimension_id and dimension_id not in dimension_ids:
+            dimension_ids.append(dimension_id)
+
+        matched = bool(metric_id or dimension_ids or pending_choice["matched"])
+        return {"metric_id": metric_id, "dimension_ids": dimension_ids, "matched": matched}
+
+    def _catalog_selection_id(self, message: str, target_type: str) -> str | None:
+        normalized = self._normalized_message(message)
+        exact_candidates = catalog_service.search_governed_candidates(
+            phrase=normalized,
+            target_type=target_type,
+            min_confidence=0.0,
+            exact_match=True,
+        )
+        if len(exact_candidates) == 1:
+            return exact_candidates[0]["target_id"]
+
+        if target_type == "metric":
+            for metric in catalog_service.list_metrics(certified=True):
+                if self._normalized_message(metric["metric_name"]) == normalized or metric["metric_id"].lower() == message.lower().strip():
+                    return metric["metric_id"]
+            search_results = catalog_service.search_metadata(message, document_type="metric", limit=3, min_score=0.20)
+            if search_results and search_results[0]["business_name"].lower() in message.lower():
+                return search_results[0]["source_id"]
+
+        if target_type == "dimension":
+            for dimension in catalog_service.list_dimensions(certified=True):
+                if (
+                    self._normalized_message(dimension["dimension_name"]) == normalized
+                    or dimension["dimension_id"].lower() == message.lower().strip()
+                ):
+                    return dimension["dimension_id"]
+            search_results = catalog_service.search_metadata(message, document_type="dimension", limit=3, min_score=0.20)
+            if search_results and search_results[0]["business_name"].lower() in message.lower():
+                return search_results[0]["source_id"]
+
+        return None
+
+    def _is_clear_topic_change(self, message: str) -> bool:
+        normalized = self._normalized_message(message)
+        if not normalized:
+            return False
+        return any(
+            phrase in normalized
+            for phrase in [
+                "what is",
+                "what does",
+                "define",
+                "definition",
+                "meaning",
+                "columns",
+                "schema",
+                "which table",
+                "what table",
+                "grain",
+                "join",
+                "certified metrics",
+                "restricted",
+                "pii",
+            ]
+        )
+
+    def _pending_task_from_response(self, response: dict[str, Any]) -> dict[str, Any]:
+        semantic_result = response.get("semantic_result") or {}
+        return self._pending_task_from_semantic(
+            semantic_result=semantic_result,
+            original_message=response.get("message") or semantic_result.get("message") or "",
+            chart_requested=response.get("intent") == "chart_query",
+            chart_type=((response.get("chart_spec") or {}).get("chart_type")),
+        )
+
+    def _pending_task_from_semantic(
+        self,
+        semantic_result: dict[str, Any],
+        original_message: str,
+        chart_requested: bool,
+        chart_type: str | None,
+    ) -> dict[str, Any]:
+        resolved = semantic_result.get("resolved") or {}
+        metric = resolved.get("metric") or {}
+        dimensions = resolved.get("dimensions") or []
+        ambiguities = semantic_result.get("ambiguities") or []
+        missing_slots: list[str] = []
+        blocked_reasons: list[str] = []
+
+        if not metric:
+            missing_slots.append("metric")
+        for ambiguity in ambiguities:
+            kind = ambiguity.get("kind")
+            if kind == "metric" and "metric" not in missing_slots:
+                missing_slots.append("metric")
+            elif kind == "dimension" and "dimension" not in missing_slots:
+                missing_slots.append("dimension")
+            elif kind == "restricted_column":
+                if "restricted_replacement" not in missing_slots:
+                    missing_slots.append("restricted_replacement")
+                blocked_reasons.append(ambiguity.get("question") or "Requested restricted column is blocked.")
+            elif kind == "join_path":
+                if "join_path" not in missing_slots:
+                    missing_slots.append("join_path")
+                blocked_reasons.append(ambiguity.get("question") or "No certified join path was found.")
+
+        return {
+            "task_type": "analytical",
+            "original_message": original_message,
+            "intent": semantic_result.get("intent") or "analytical_query",
+            "chart_requested": chart_requested,
+            "chart_type": chart_type,
+            "resolved_metric_id": metric.get("id"),
+            "resolved_metric_label": metric.get("business_name"),
+            "resolved_dimension_ids": [dimension["id"] for dimension in dimensions if dimension.get("id")],
+            "resolved_dimension_labels": [dimension["business_name"] for dimension in dimensions if dimension.get("business_name")],
+            "missing_slots": missing_slots,
+            "blocked_reasons": blocked_reasons,
+            "clarification_options": ambiguities,
+            "status": "awaiting_clarification",
+        }
+
+    def _pending_task_clarification_question(
+        self,
+        pending_task: dict[str, Any],
+        selection: dict[str, Any] | None = None,
+    ) -> str:
+        lines: list[str] = []
+        understood = []
+        if pending_task.get("resolved_metric_label"):
+            understood.append(f"Metric: {pending_task['resolved_metric_label']}")
+        for label in pending_task.get("resolved_dimension_labels") or []:
+            understood.append(f"Grouping: {label}")
+
+        selection = selection or {}
+        selected_dimension_ids = set(selection.get("dimension_ids") or [])
+        if selected_dimension_ids and not selection.get("metric_id") and "metric" in (pending_task.get("missing_slots") or []):
+            selected_labels = [
+                label
+                for dimension_id, label in zip(
+                    pending_task.get("resolved_dimension_ids") or [],
+                    pending_task.get("resolved_dimension_labels") or [],
+                )
+                if dimension_id in selected_dimension_ids
+            ]
+            if selected_labels:
+                lines.append(f"I already captured {', '.join(selected_labels)} as the grouping.")
+
+        if understood:
+            lines.append("I understood:")
+            lines.extend(f"- {item}" for item in understood)
+
+        missing_labels = [self._slot_label(slot) for slot in pending_task.get("missing_slots") or []]
+        if missing_labels:
+            if lines:
+                lines.append("")
+            lines.append("I still need:")
+            lines.extend(f"- {label}" for label in missing_labels)
+
+        blocked_reasons = pending_task.get("blocked_reasons") or []
+        if blocked_reasons:
+            if lines:
+                lines.append("")
+            lines.append("Governance block:")
+            lines.extend(f"- {reason}" for reason in blocked_reasons)
+
+        clarification_text = self._clarification_question(pending_task.get("clarification_options") or [])
+        if clarification_text:
+            if lines:
+                lines.append("")
+            lines.append(clarification_text)
+        return "\n".join(lines) if lines else clarification_text
+
+    def _slot_label(self, slot: str) -> str:
+        labels = {
+            "metric": "a certified governed metric",
+            "dimension": "a certified governed grouping",
+            "time_period": "a time period",
+            "chart_type": "a chart type",
+            "restricted_replacement": "a governed non-restricted replacement",
+            "join_path": "a certified join path",
+        }
+        return labels.get(slot, slot.replace("_", " "))
 
     def _resolve_pending_choice(self, message: str, pending: dict[str, Any]) -> dict[str, Any]:
         normalized = message.lower().strip()
@@ -654,7 +1073,11 @@ class LlmGovernedAssistantGraph:
                 lines.append(f"{index}. {option.get('label')}{location}")
         return "\n".join(lines)
 
-    def _information_answer(self, decision: dict[str, Any], context: dict[str, Any]) -> str:
+    def _information_answer(self, message: str, decision: dict[str, Any], context: dict[str, Any]) -> str:
+        structured_answer = self._structured_metadata_answer(message)
+        if structured_answer:
+            return structured_answer
+
         if decision.get("answer"):
             return decision["answer"]
         top = (context.get("search_results") or [{}])[0]
@@ -693,6 +1116,288 @@ class LlmGovernedAssistantGraph:
                     )
         return f"{top.get('business_name')} is documented in the governed metadata catalog. Source: {top.get('source_id')}."
 
+    def _structured_metadata_answer(self, message: str) -> str | None:
+        normalized = self._normalized_message(message)
+
+        if self._asks_for_certified_metrics(normalized):
+            return self._certified_metrics_answer(normalized)
+
+        if self._asks_for_restricted_columns(normalized):
+            table_name = self._table_from_message(message) or ("dim_customer" if "customer" in normalized else None)
+            if table_name:
+                return self._restricted_columns_answer(table_name)
+
+        if self._asks_for_join_path(normalized):
+            table_names = self._tables_in_message(message)
+            if len(table_names) >= 2:
+                return self._join_path_answer(table_names[0], table_names[1])
+
+        if self._asks_where_column_lives(normalized):
+            return self._column_location_answer(normalized)
+
+        table_name = self._table_from_message(message)
+        if table_name and self._asks_for_columns(normalized):
+            return self._columns_answer(table_name)
+
+        if table_name and "grain" in normalized:
+            return self._grain_answer(table_name)
+
+        return None
+
+    def _asks_for_certified_metrics(self, normalized: str) -> bool:
+        return "certified" in normalized and ("metric" in normalized or "metrics" in normalized)
+
+    def _asks_for_restricted_columns(self, normalized: str) -> bool:
+        return ("restricted" in normalized or "pii" in normalized) and (
+            "column" in normalized or "columns" in normalized or "field" in normalized or "fields" in normalized
+        )
+
+    def _asks_for_join_path(self, normalized: str) -> bool:
+        return "join" in normalized or "joins" in normalized
+
+    def _asks_for_columns(self, normalized: str) -> bool:
+        return any(term in normalized for term in ["column", "columns", "field", "fields", "schema"])
+
+    def _asks_where_column_lives(self, normalized: str) -> bool:
+        return any(term in normalized for term in ["which table", "what table", "where is", "where are"]) and any(
+            term in normalized for term in ["column", "field", "attribute", "contain", "contains"]
+        )
+
+    def _columns_answer(self, table_name: str) -> str:
+        table = catalog_service.get_table(table_name)
+        if not table:
+            return f"I could not find `{table_name}` in the governed metadata catalog."
+        columns = catalog_service.list_columns(table_name=table_name)
+        lines = [
+            f"`{table_name}` ({table['business_name']}) is a certified {table['table_type'].lower()} table.",
+            f"Grain: {table['grain']}",
+            "Columns:",
+        ]
+        for column in columns:
+            governance_notes = []
+            if column.get("pii_flag"):
+                governance_notes.append("PII")
+            if column.get("restricted_flag"):
+                governance_notes.append("restricted")
+            suffix = f" [{', '.join(governance_notes)}]" if governance_notes else ""
+            lines.append(
+                f"- `{table_name}.{column['column_name']}` ({column['data_type']}): "
+                f"{column['business_name']} - {column['description']}{suffix}"
+            )
+        return "\n".join(lines)
+
+    def _grain_answer(self, table_name: str) -> str:
+        table = catalog_service.get_table(table_name)
+        if not table:
+            return f"I could not find `{table_name}` in the governed metadata catalog."
+        return (
+            f"`{table_name}` is the governed `{table['business_name']}` table. "
+            f"Its grain is: {table['grain']} Refresh frequency: {table['refresh_frequency']}. "
+            f"Data owner: {table['data_owner']}."
+        )
+
+    def _restricted_columns_answer(self, table_name: str) -> str:
+        table = catalog_service.get_table(table_name)
+        if not table:
+            return f"I could not find `{table_name}` in the governed metadata catalog."
+        restricted_columns = [
+            column for column in catalog_service.list_columns(table_name=table_name) if column.get("pii_flag") or column.get("restricted_flag")
+        ]
+        if not restricted_columns:
+            return f"`{table_name}` has no columns marked as PII or restricted in the governed metadata catalog."
+        lines = [f"Restricted or PII columns in `{table_name}`:"]
+        for column in restricted_columns:
+            flags = []
+            if column.get("pii_flag"):
+                flags.append("PII")
+            if column.get("restricted_flag"):
+                flags.append("restricted")
+            lines.append(
+                f"- `{table_name}.{column['column_name']}`: {column['business_name']} "
+                f"({', '.join(flags)}). {column['description']}"
+            )
+        return "\n".join(lines)
+
+    def _certified_metrics_answer(self, normalized: str) -> str:
+        metrics = catalog_service.list_metrics(certified=True)
+        subject_hint = self._subject_hint(normalized)
+        if subject_hint:
+            metrics = [
+                metric
+                for metric in metrics
+                if subject_hint in self._metadata_blob(
+                    metric.get("metric_name"),
+                    metric.get("description"),
+                    metric.get("base_table"),
+                    metric.get("subject_area"),
+                )
+            ]
+        if not metrics:
+            return "I could not find certified metrics matching that subject area in the governed metadata catalog."
+        lines = ["Certified governed metrics available:"]
+        for metric in metrics[:12]:
+            lines.append(
+                f"- `{metric['metric_id']}`: {metric['metric_name']} "
+                f"from `{metric['base_table']}` - {metric['description']}"
+            )
+        return "\n".join(lines)
+
+    def _column_location_answer(self, normalized: str) -> str | None:
+        tokens = self._lookup_tokens(normalized)
+        dimensions = catalog_service.list_dimensions(certified=True)
+        matching_dimensions = [
+            dimension
+            for dimension in dimensions
+            if all(token in self._metadata_blob(dimension.get("dimension_name"), dimension.get("description"), dimension.get("table_name"), dimension.get("column_name")) for token in tokens)
+        ]
+        if not matching_dimensions and "channel" in normalized and "deposit" in normalized:
+            matching_dimensions = [
+                dimension
+                for dimension in dimensions
+                if dimension.get("dimension_id") == "dimension.transaction_channel"
+            ]
+        if matching_dimensions:
+            lines = ["The governed catalog maps that business attribute to:"]
+            for dimension in matching_dimensions[:5]:
+                lines.append(
+                    f"- {dimension['dimension_name']}: `{dimension['table_name']}.{dimension['column_name']}`. "
+                    f"{dimension['description']}"
+                )
+            return "\n".join(lines)
+
+        matching_columns = [
+            column
+            for column in catalog_service.list_columns()
+            if all(token in self._metadata_blob(column.get("business_name"), column.get("description"), column.get("table_name"), column.get("column_name")) for token in tokens)
+        ]
+        if matching_columns:
+            lines = ["The governed catalog has these matching physical columns:"]
+            for column in matching_columns[:5]:
+                lines.append(
+                    f"- `{column['table_name']}.{column['column_name']}`: {column['business_name']} - {column['description']}"
+                )
+            return "\n".join(lines)
+        return None
+
+    def _join_path_answer(self, from_table: str, to_table: str) -> str:
+        path = self._certified_join_path(from_table, to_table)
+        if not path:
+            return f"I could not find a certified join path from `{from_table}` to `{to_table}` in the metadata catalog."
+        lines = [f"Certified join path from `{from_table}` to `{to_table}`:"]
+        for index, join in enumerate(path, start=1):
+            lines.append(
+                f"{index}. `{join['from_table']}.{join['from_column']}` {join['join_type']} JOIN "
+                f"`{join['to_table']}.{join['to_column']}` ({join['relationship_type']}) - {join['description']}"
+            )
+        return "\n".join(lines)
+
+    def _certified_join_path(self, from_table: str, to_table: str) -> list[dict[str, Any]]:
+        joins = [join for join in catalog_service.list_join_paths() if join.get("certified_flag")]
+        adjacency: dict[str, list[tuple[str, dict[str, Any]]]] = {}
+        for join in joins:
+            adjacency.setdefault(join["from_table"], []).append((join["to_table"], join))
+            reversed_join = {
+                **join,
+                "from_table": join["to_table"],
+                "from_column": join["to_column"],
+                "to_table": join["from_table"],
+                "to_column": join["from_column"],
+            }
+            adjacency.setdefault(join["to_table"], []).append((join["from_table"], reversed_join))
+
+        queue: deque[tuple[str, list[dict[str, Any]]]] = deque([(from_table, [])])
+        visited = {from_table}
+        while queue:
+            current_table, path = queue.popleft()
+            if current_table == to_table:
+                return path
+            for next_table, join in adjacency.get(current_table, []):
+                if next_table in visited:
+                    continue
+                visited.add(next_table)
+                queue.append((next_table, path + [join]))
+        return []
+
+    def _table_from_message(self, message: str) -> str | None:
+        table_names = self._tables_in_message(message)
+        if table_names:
+            return table_names[0]
+        normalized = self._normalized_message(message)
+        if "customer" in normalized and "table" in normalized:
+            return "dim_customer"
+        if "account" in normalized and "table" in normalized:
+            return "dim_account"
+        if "loan" in normalized and "table" in normalized:
+            return "dim_loan"
+        return None
+
+    def _tables_in_message(self, message: str) -> list[str]:
+        raw = message.lower()
+        normalized = self._normalized_message(message)
+        table_positions: list[tuple[int, str]] = []
+        for table in catalog_service.list_tables():
+            table_name = table["table_name"]
+            variants = {
+                table_name.lower(),
+                table_name.lower().replace("_", " "),
+                self._normalized_message(table.get("business_name") or ""),
+            }
+            positions = []
+            for variant in variants:
+                if not variant:
+                    continue
+                raw_position = raw.find(variant)
+                normalized_position = normalized.find(variant)
+                if raw_position >= 0:
+                    positions.append(raw_position)
+                if normalized_position >= 0:
+                    positions.append(normalized_position)
+            if positions:
+                table_positions.append((min(positions), table_name))
+        return [table_name for _, table_name in sorted(table_positions, key=lambda item: item[0])]
+
+    def _lookup_tokens(self, normalized: str) -> list[str]:
+        stopwords = {
+            "which",
+            "what",
+            "where",
+            "table",
+            "column",
+            "columns",
+            "field",
+            "fields",
+            "attribute",
+            "attributes",
+            "contain",
+            "contains",
+            "available",
+            "in",
+            "is",
+            "are",
+            "the",
+            "and",
+            "does",
+            "do",
+        }
+        return [word for word in normalized.split() if len(word) > 2 and word not in stopwords]
+
+    def _subject_hint(self, normalized: str) -> str | None:
+        if "deposit" in normalized:
+            return "deposit"
+        if "loan" in normalized or "lending" in normalized:
+            return "loan"
+        if "credit" in normalized or "risk" in normalized:
+            return "risk"
+        if "profit" in normalized or "relationship" in normalized:
+            return "profit"
+        return None
+
+    def _metadata_blob(self, *values: Any) -> str:
+        return " ".join(str(value or "").lower().replace("_", " ") for value in values)
+
+    def _normalized_message(self, message: str) -> str:
+        return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9_]+", " ", message.lower())).strip()
+
     def _resolver_prompt(self) -> str:
         return (
             "You are a governed commercial banking analytics assistant using AWS Bedrock Titan. "
@@ -722,6 +1427,8 @@ class LlmGovernedAssistantGraph:
         )
 
     def _response(self, state: LlmAssistantState) -> dict[str, Any]:
+        if state.get("cached_response"):
+            return state["cached_response"]
         sql_result = state.get("sql_result") or {}
         execution_result = state.get("execution_result") or {}
         answer_result = state.get("answer_result") or {}
@@ -738,6 +1445,7 @@ class LlmGovernedAssistantGraph:
             "response_mode": state.get("response_mode") or decision.get("response_mode"),
             "requires_clarification": state.get("requires_clarification", False),
             "clarification_options": state.get("clarification_options", []),
+            "pending_task": state.get("pending_task") or {},
             "sql_visible": bool(sql_result.get("generated_sql")),
             "generated_sql": sql_result.get("generated_sql"),
             "sql_summary": sql_result.get("sql_summary"),
@@ -766,6 +1474,7 @@ class LlmGovernedAssistantGraph:
             "assumptions": sql_result.get("assumptions") or [],
             "warnings": state.get("warnings") or [],
             "graph_trace": state.get("graph_trace", []),
+            "_resolved_cache_key": state.get("resolved_cache_key"),
         }
 
 

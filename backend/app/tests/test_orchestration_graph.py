@@ -296,7 +296,12 @@ def test_chat_analytical_answer_is_cached_when_llm_answer_varies(monkeypatch) ->
     ).json()
     second = client.post(
         "/chat/message",
-        json={"message": "Plot loan utilization by month.", "user_role": "technical_user", "technical_mode": True},
+        json={
+            "message": "Plot loan utilization by month.",
+            "conversation_id": first["conversation_id"],
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
     ).json()
 
     assert calls["answer_generation"] == 1
@@ -305,6 +310,450 @@ def test_chat_analytical_answer_is_cached_when_llm_answer_varies(monkeypatch) ->
     assert first["result_table"]["columns"] == ["year_month", "loan_utilization_rate"]
     assert first["chart_spec"]["x_axis"]["column"] == "year_month"
     assert "GROUP BY dd.year_month" in first["generated_sql"]
+
+
+def test_chat_cache_is_scoped_to_conversation() -> None:
+    assistant_response_cache.clear()
+
+    first = client.post(
+        "/chat/message",
+        json={"message": "Plot loan utilization by month.", "user_role": "technical_user", "technical_mode": True},
+    ).json()
+    same_conversation = client.post(
+        "/chat/message",
+        json={
+            "message": "Plot loan utilization by month.",
+            "conversation_id": first["conversation_id"],
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+    new_conversation = client.post(
+        "/chat/message",
+        json={"message": "Plot loan utilization by month.", "user_role": "technical_user", "technical_mode": True},
+    ).json()
+
+    assert same_conversation["llm_trace"]["cache_status"] == "hit"
+    assert new_conversation["conversation_id"] != first["conversation_id"]
+    assert new_conversation["llm_trace"].get("cache_status") != "hit"
+
+
+def test_ambiguous_question_is_not_answered_from_prior_clarified_cache() -> None:
+    assistant_response_cache.clear()
+
+    first = client.post(
+        "/chat/message",
+        json={"message": "can you give balance by segment", "user_role": "technical_user", "technical_mode": True},
+    ).json()
+    product_answer = client.post(
+        "/chat/message",
+        json={
+            "message": "Average Deposit Ledger Balance and Product Segment",
+            "conversation_id": first["conversation_id"],
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+    second = client.post(
+        "/chat/message",
+        json={
+            "message": "can you give balance by segment",
+            "conversation_id": first["conversation_id"],
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+    customer_answer = client.post(
+        "/chat/message",
+        json={
+            "message": "Average Deposit Ledger Balance and Customer Segment",
+            "conversation_id": first["conversation_id"],
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+    third = client.post(
+        "/chat/message",
+        json={
+            "message": "can you give balance by segment",
+            "conversation_id": first["conversation_id"],
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+
+    assert product_answer["status"] == OrchestrationStatus.ANSWERED
+    assert product_answer["result_table"]["columns"] == ["product_segment", "average_deposit_ledger_balance"]
+    assert customer_answer["status"] == OrchestrationStatus.ANSWERED
+    assert customer_answer["result_table"]["columns"] == ["customer_segment", "average_deposit_ledger_balance"]
+    assert second["status"] == OrchestrationStatus.NEEDS_CLARIFICATION
+    assert second["generated_sql"] is None
+    assert third["status"] == OrchestrationStatus.NEEDS_CLARIFICATION
+    assert third["generated_sql"] is None
+
+
+def test_pending_dimension_change_replaces_prior_dimension_choice() -> None:
+    assistant_response_cache.clear()
+
+    first = client.post(
+        "/chat/message",
+        json={"message": "can you give balance by segment", "user_role": "technical_user", "technical_mode": True},
+    ).json()
+    product_pending = client.post(
+        "/chat/message",
+        json={
+            "message": "Product Segment",
+            "conversation_id": first["conversation_id"],
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+    customer_pending = client.post(
+        "/chat/message",
+        json={
+            "message": "Customer Segment",
+            "conversation_id": first["conversation_id"],
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+    final_answer = client.post(
+        "/chat/message",
+        json={
+            "message": "Average Deposit Ledger Balance",
+            "conversation_id": first["conversation_id"],
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+
+    assert product_pending["pending_task"]["resolved_dimension_ids"] == ["dimension.product_segment"]
+    assert customer_pending["pending_task"]["resolved_dimension_ids"] == ["dimension.customer_segment"]
+    assert final_answer["status"] == OrchestrationStatus.ANSWERED
+    assert final_answer["result_table"]["columns"] == ["customer_segment", "average_deposit_ledger_balance"]
+    assert "GROUP BY dc.customer_segment" in final_answer["generated_sql"]
+    assert "product_segment" not in final_answer["generated_sql"]
+
+
+def test_resolved_cache_key_does_not_mix_different_dimensions() -> None:
+    assistant_response_cache.clear()
+
+    product_first = client.post(
+        "/chat/message",
+        json={
+            "message": "Show average deposit ledger balance by product segment.",
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+    customer_first = client.post(
+        "/chat/message",
+        json={
+            "message": "Show average deposit ledger balance by customer segment.",
+            "conversation_id": product_first["conversation_id"],
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+    product_second = client.post(
+        "/chat/message",
+        json={
+            "message": "Show average deposit ledger balance by product segment.",
+            "conversation_id": product_first["conversation_id"],
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+
+    assert product_first["result_table"]["columns"] == ["product_segment", "average_deposit_ledger_balance"]
+    assert customer_first["result_table"]["columns"] == ["customer_segment", "average_deposit_ledger_balance"]
+    assert product_second["result_table"]["columns"] == ["product_segment", "average_deposit_ledger_balance"]
+    assert product_second["llm_trace"]["cache_status"] == "hit"
+
+
+def test_chat_session_reset_clears_backend_cache() -> None:
+    assistant_response_cache.clear()
+
+    first = client.post(
+        "/chat/message",
+        json={
+            "message": "Show average deposit ledger balance by customer segment.",
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+    second = client.post(
+        "/chat/message",
+        json={
+            "message": "Show average deposit ledger balance by customer segment.",
+            "conversation_id": first["conversation_id"],
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+    reset = client.post("/chat/session/reset").json()
+    third = client.post(
+        "/chat/message",
+        json={
+            "message": "Show average deposit ledger balance by customer segment.",
+            "conversation_id": first["conversation_id"],
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+
+    assert second["llm_trace"]["cache_status"] == "hit"
+    assert reset == {"status": "reset", "cache_cleared": True}
+    assert third["llm_trace"].get("cache_status") != "hit"
+
+
+def test_chat_ambiguous_balance_by_segment_asks_metric_and_dimension() -> None:
+    assistant_response_cache.clear()
+
+    payload = client.post(
+        "/chat/message",
+        json={"message": "can you give balance by segment", "user_role": "technical_user", "technical_mode": True},
+    ).json()
+
+    assert payload["status"] == OrchestrationStatus.NEEDS_CLARIFICATION
+    assert payload["requires_clarification"] is True
+    assert {item["kind"] for item in payload["clarification_options"]} == {"metric", "dimension"}
+    assert payload["generated_sql"] is None
+
+
+def test_llm_selected_dimension_cannot_bypass_ambiguous_segment_clarification(monkeypatch) -> None:
+    assistant_response_cache.clear()
+
+    def fake_invoke_json(**kwargs: object) -> dict[str, object]:
+        if kwargs.get("task_name") == "intent_semantic_resolution":
+            return {
+                "intent": "analytical_query",
+                "action": "analytics",
+                "response_mode": "sql_answer",
+                "allow_sql": True,
+                "allow_chart": False,
+                "confidence": 0.95,
+                "selected_metric_id": "metric.average_deposit_ledger_balance",
+                "selected_dimension_ids": ["dimension.product_segment"],
+                "chart_requested": False,
+            }
+        fallback = kwargs.get("fallback")
+        return fallback() if callable(fallback) else {}
+
+    monkeypatch.setattr("backend.app.orchestration.llm_graph.llm_client.invoke_json", fake_invoke_json)
+
+    payload = client.post(
+        "/chat/message",
+        json={"message": "can you give balance by segment", "user_role": "technical_user", "technical_mode": True},
+    ).json()
+
+    assert payload["status"] == OrchestrationStatus.NEEDS_CLARIFICATION
+    assert payload["requires_clarification"] is True
+    assert payload["generated_sql"] is None
+    assert {item["kind"] for item in payload["clarification_options"]} == {"metric", "dimension"}
+    dimension_options = next(item for item in payload["clarification_options"] if item["kind"] == "dimension")["options"]
+    assert {option["id"] for option in dimension_options} == {"dimension.customer_segment", "dimension.product_segment"}
+
+
+def test_chat_missing_metric_preserves_resolved_dimension_and_offers_related_metrics() -> None:
+    assistant_response_cache.clear()
+
+    payload = client.post(
+        "/chat/message",
+        json={
+            "message": "show average loan interest rate by product segment",
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+
+    assert payload["status"] == OrchestrationStatus.NEEDS_CLARIFICATION
+    assert payload["requires_clarification"] is True
+    assert payload["pending_task"]["resolved_dimension_ids"] == ["dimension.product_segment"]
+    assert payload["pending_task"]["missing_slots"] == ["metric"]
+    assert "Grouping: Product Segment" in payload["answer"]
+    metric_options = payload["clarification_options"][0]["options"]
+    assert metric_options
+    assert "Loan Utilization Rate" in {option["label"] for option in metric_options}
+    assert payload["generated_sql"] is None
+
+
+def test_chat_pending_followup_reuses_original_task_when_user_repeats_dimension() -> None:
+    assistant_response_cache.clear()
+
+    first_payload = client.post(
+        "/chat/message",
+        json={
+            "message": "show average loan interest rate by product segment",
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+    second_payload = client.post(
+        "/chat/message",
+        json={
+            "message": "product segment",
+            "conversation_id": first_payload["conversation_id"],
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+
+    assert second_payload["status"] == OrchestrationStatus.NEEDS_CLARIFICATION
+    assert second_payload["intent"] == "analytical_query"
+    assert second_payload["generated_sql"] is None
+    assert "already captured Product Segment" in second_payload["answer"]
+    assert second_payload["pending_task"]["original_message"] == "show average loan interest rate by product segment"
+    assert second_payload["pending_task"]["missing_slots"] == ["metric"]
+
+
+def test_chat_pending_followup_metric_completes_original_task_with_preserved_dimension() -> None:
+    assistant_response_cache.clear()
+
+    first_payload = client.post(
+        "/chat/message",
+        json={
+            "message": "show average loan interest rate by product segment",
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+    second_payload = client.post(
+        "/chat/message",
+        json={
+            "message": "Loan Utilization Rate",
+            "conversation_id": first_payload["conversation_id"],
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+
+    assert second_payload["status"] == OrchestrationStatus.ANSWERED
+    assert second_payload["requires_clarification"] is False
+    assert second_payload["result_table"]["columns"] == ["product_segment", "loan_utilization_rate"]
+    assert "GROUP BY dp.product_segment" in second_payload["generated_sql"]
+
+
+def test_chat_pending_followup_numbered_metric_completes_original_task() -> None:
+    assistant_response_cache.clear()
+
+    first_payload = client.post(
+        "/chat/message",
+        json={
+            "message": "show average loan interest rate by product segment",
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+    second_payload = client.post(
+        "/chat/message",
+        json={
+            "message": "2",
+            "conversation_id": first_payload["conversation_id"],
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+
+    assert second_payload["status"] == OrchestrationStatus.ANSWERED
+    assert second_payload["result_table"]["columns"] == ["product_segment", "loan_utilization_rate"]
+
+
+def test_chat_table_column_location_uses_catalog_metadata() -> None:
+    payload = client.post(
+        "/chat/message",
+        json={
+            "message": "Which table and column contain deposit transaction channel?",
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+
+    assert payload["status"] == OrchestrationStatus.ANSWERED
+    assert payload["generated_sql"] is None
+    assert "fact_deposit_transaction.channel" in payload["answer"]
+    assert "fact_deposit_transaction.account_id" not in payload["answer"]
+
+
+def test_chat_table_columns_question_lists_schema() -> None:
+    payload = client.post(
+        "/chat/message",
+        json={
+            "message": "What columns are available in fact_deposit_transaction?",
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+
+    assert payload["status"] == OrchestrationStatus.ANSWERED
+    assert payload["generated_sql"] is None
+    assert "transaction_date" in payload["answer"]
+    assert "channel" in payload["answer"]
+    assert "amount" in payload["answer"]
+
+
+def test_chat_table_grain_question_uses_table_metadata() -> None:
+    payload = client.post(
+        "/chat/message",
+        json={
+            "message": "What is the grain of fact_deposit_balance_daily?",
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+
+    assert payload["status"] == OrchestrationStatus.ANSWERED
+    assert payload["generated_sql"] is None
+    assert "One row per deposit account per business date" in payload["answer"]
+
+
+def test_chat_join_path_question_uses_certified_join_catalog() -> None:
+    payload = client.post(
+        "/chat/message",
+        json={
+            "message": "How does fact_deposit_balance_daily join to dim_customer?",
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+
+    assert payload["status"] == OrchestrationStatus.ANSWERED
+    assert payload["generated_sql"] is None
+    assert "fact_deposit_balance_daily.account_id" in payload["answer"]
+    assert "dim_customer.customer_id" in payload["answer"]
+
+
+def test_chat_certified_deposit_metrics_lists_catalog_metrics() -> None:
+    payload = client.post(
+        "/chat/message",
+        json={
+            "message": "List certified metrics available for deposits.",
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+
+    assert payload["status"] == OrchestrationStatus.ANSWERED
+    assert payload["generated_sql"] is None
+    assert "Average Deposit Ledger Balance" in payload["answer"]
+    assert "Total Deposit Transaction Amount" in payload["answer"]
+
+
+def test_chat_product_segment_does_not_add_product_type_grouping() -> None:
+    assistant_response_cache.clear()
+
+    payload = client.post(
+        "/chat/message",
+        json={
+            "message": "Show average deposit ledger balance by market and product segment.",
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+
+    assert payload["status"] == OrchestrationStatus.ANSWERED
+    assert payload["result_table"]["columns"] == ["product_segment", "market", "average_deposit_ledger_balance"]
+    assert "product_type" not in payload["generated_sql"]
 
 
 def test_pending_clarification_choice_bypasses_llm_and_uses_prior_context(monkeypatch) -> None:

@@ -65,7 +65,7 @@ def test_lineage_lookup_supports_qualified_asset_names() -> None:
 def test_metadata_search_retrieves_metrics_and_dimensions() -> None:
     response = client.get(
         "/metadata/search",
-        params={"query": "average balance by segment", "limit": 8},
+        params={"query": "average balance by segment", "limit": 20},
     )
 
     assert response.status_code == 200

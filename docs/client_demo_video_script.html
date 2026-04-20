@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>3-Minute Client Demo Video Script - CFG Enterprise Data Bot</title>
+    <style>
+      :root {
+        --ink: #102033;
+        --muted: #5d6f82;
+        --line: #d8e3ec;
+        --soft: #f5f8fb;
+        --panel: #ffffff;
+        --blue: #0b5cab;
+        --blue-dark: #073d72;
+        --green: #0f8f68;
+        --green-dark: #0b6249;
+        --gold: #9a6500;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: #eef4f8;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.55;
+      }
+
+      header {
+        padding: 52px 26px 42px;
+        color: #ffffff;
+        background:
+          linear-gradient(135deg, rgba(7, 61, 114, 0.98), rgba(15, 143, 104, 0.92)),
+          radial-gradient(circle at 78% 18%, rgba(255,255,255,0.16), transparent 34%);
+      }
+
+      .inner,
+      main {
+        max-width: 1120px;
+        margin: 0 auto;
+      }
+
+      .eyebrow {
+        margin: 0 0 12px;
+        font-size: 0.82rem;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        opacity: 0.9;
+      }
+
+      h1 {
+        max-width: 880px;
+        margin: 0;
+        font-size: clamp(2.1rem, 5vw, 4rem);
+        line-height: 1.05;
+      }
+
+      header p:last-child {
+        max-width: 820px;
+        margin: 18px 0 0;
+        color: rgba(255,255,255,0.9);
+        font-size: 1.08rem;
+      }
+
+      main {
+        padding: 28px 24px 70px;
+      }
+
+      section {
+        margin-bottom: 22px;
+        padding: 24px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        box-shadow: 0 10px 28px rgba(10, 45, 78, 0.06);
+      }
+
+      h2 {
+        margin: 0 0 14px;
+        color: var(--blue-dark);
+        font-size: 1.45rem;
+      }
+
+      h3 {
+        margin: 22px 0 10px;
+        color: var(--green-dark);
+        font-size: 1.08rem;
+      }
+
+      p {
+        margin: 0 0 12px;
+      }
+
+      ul {
+        margin: 8px 0 0;
+        padding-left: 22px;
+      }
+
+      li {
+        margin: 6px 0;
+      }
+
+      code {
+        padding: 2px 5px;
+        border-radius: 4px;
+        color: #0f172a;
+        background: #edf3f8;
+        font-family: SFMono-Regular, Consolas, Liberation Mono, monospace;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .card {
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--soft);
+      }
+
+      .card strong {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--blue-dark);
+      }
+
+      table {
+        width: 100%;
+        margin-top: 14px;
+        border-collapse: collapse;
+        font-size: 0.94rem;
+      }
+
+      th,
+      td {
+        padding: 11px 12px;
+        vertical-align: top;
+        border: 1px solid var(--line);
+      }
+
+      th {
+        color: var(--blue-dark);
+        background: #edf6fb;
+        text-align: left;
+      }
+
+      .time {
+        width: 96px;
+        color: var(--green-dark);
+        font-weight: 900;
+        white-space: nowrap;
+      }
+
+      .scene-title {
+        color: var(--blue-dark);
+        font-weight: 900;
+      }
+
+      .script {
+        padding: 14px 16px;
+        border-left: 5px solid var(--green);
+        border-radius: 6px;
+        background: #ecf8f4;
+      }
+
+      .screen {
+        padding: 14px 16px;
+        border-left: 5px solid var(--blue);
+        border-radius: 6px;
+        background: #eef6fc;
+      }
+
+      .callout {
+        padding: 14px 16px;
+        border-left: 5px solid var(--gold);
+        border-radius: 6px;
+        background: #fff7e8;
+      }
+
+      .tag {
+        display: inline-block;
+        margin: 4px 6px 4px 0;
+        padding: 4px 9px;
+        border-radius: 999px;
+        color: #ffffff;
+        background: var(--blue);
+        font-size: 0.8rem;
+        font-weight: 900;
+      }
+
+      .tag.green {
+        background: var(--green);
+      }
+
+      @media print {
+        body {
+          background: #ffffff;
+        }
+
+        section {
+          break-inside: avoid;
+          box-shadow: none;
+        }
+      }
+
+      @media (max-width: 850px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+
+        main {
+          padding: 18px 14px 50px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="inner">
+        <p class="eyebrow">Client demo narration</p>
+        <h1>3-Minute Video Script for CFG Enterprise Data Bot</h1>
+        <p>
+          A concise client-facing story that demonstrates the assistant as more than a chatbot: a governed commercial banking analytics assistant that understands business questions, clarifies ambiguity, generates validated SQL, creates charts, cites sources, and captures feedback.
+        </p>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>Video Objective</h2>
+        <p>
+          Position CFG Enterprise Data Bot as an enterprise-ready analytics assistant for commercial banking data users.
+          The story should show that it is not a generic chatbot. It is a governed assistant that can explain definitions, resolve business context, generate SQL, validate governance, visualize results, and support quality feedback.
+        </p>
+
+        <div class="grid">
+          <div class="card">
+            <strong>Audience</strong>
+            Business leaders, data owners, analytics teams, and technology stakeholders.
+          </div>
+          <div class="card">
+            <strong>Duration</strong>
+            Approximately 3 minutes.
+          </div>
+          <div class="card">
+            <strong>Tone</strong>
+            Professional, confident, practical, and business-value focused.
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Key Messages to Land</h2>
+        <span class="tag">Governed analytics</span>
+        <span class="tag green">LLM-driven reasoning</span>
+        <span class="tag">Validated SQL</span>
+        <span class="tag green">Business definitions</span>
+        <span class="tag">Clarification workflow</span>
+        <span class="tag green">Charts and evidence</span>
+
+        <ul>
+          <li>The assistant helps both technical and non-technical users ask questions in plain English.</li>
+          <li>It answers definition questions without generating unnecessary SQL.</li>
+          <li>It asks clarification when business meaning is ambiguous.</li>
+          <li>It generates SQL only from governed metadata and validates SQL before execution.</li>
+          <li>It can return charts, result tables, SQL evidence, source citations, and audit details.</li>
+          <li>It supports feedback and quality monitoring for continuous improvement.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>3-Minute Storyboard and Narration</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Scene</th>
+              <th>On-Screen Action</th>
+              <th>Narration</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="time">0:00-0:15</td>
+              <td class="scene-title">Opening: The business problem</td>
+              <td>
+                Show the CFG Enterprise Data Bot home screen with executive header, governance active, data connected, and recent conversations sidebar.
+              </td>
+              <td>
+                <div class="script">
+                  "Commercial banking teams depend on trusted data every day, but finding the right metric, table, definition, or SQL can take time. Business users may not know the right column names, and technical teams spend hours answering repeated data questions. CFG Enterprise Data Bot is designed to close that gap."
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="time">0:15-0:35</td>
+              <td class="scene-title">Introduce the assistant</td>
+              <td>
+                Slowly pan over the chatbot interface. Highlight status cards: Data Connected, Governance Active, LLM Ready, Cache Available.
+              </td>
+              <td>
+                <div class="script">
+                  "This is not just a chatbot. It is a governed commercial banking analytics assistant. It combines natural language, business metadata, lineage, access rules, SQL validation, charts, and feedback into one guided experience."
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="time">0:35-0:58</td>
+              <td class="scene-title">Feature 1: Business definition answer</td>
+              <td>
+                Type: <code>What does average collected balance mean?</code>
+                Show the assistant answering with a definition only. Point out no SQL/chart is generated.
+              </td>
+              <td>
+                <div class="script">
+                  "First, a user can ask a business definition question. Here, the assistant understands that this is not an analytical query. It answers from governed business metadata and avoids generating SQL unnecessarily."
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="time">0:58-1:22</td>
+              <td class="scene-title">Feature 2: Clarification when meaning is ambiguous</td>
+              <td>
+                Type: <code>Show average balance by customer segment</code>
+                Show clarification cards with governed metric options such as Average Deposit Ledger Balance and Average Deposit Collected Balance.
+              </td>
+              <td>
+                <div class="script">
+                  "When a phrase is ambiguous, the assistant does not guess. Average balance can mean different certified metrics. Instead of hallucinating, it asks a follow-up question and presents governed choices to the user."
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="time">1:22-1:45</td>
+              <td class="scene-title">Feature 3: SQL-backed analytics</td>
+              <td>
+                Select or type: <code>Average Deposit Ledger Balance</code>
+                Show the answer summary card, result table, and SQL section.
+              </td>
+              <td>
+                <div class="script">
+                  "Once the user selects the intended metric, the assistant preserves the original context, including customer segment. It generates SQL, validates it against governed metadata, executes the query, and returns an analyst-style answer with a result table and SQL evidence."
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="time">1:45-2:10</td>
+              <td class="scene-title">Feature 4: Chart generation</td>
+              <td>
+                Type: <code>Plot loan utilization by month.</code>
+                Show thinking state, then line chart with year month on X axis and loan utilization rate on Y axis.
+              </td>
+              <td>
+                <div class="script">
+                  "The assistant can also visualize data. In this example, it understands that the user wants a monthly trend, selects the certified loan utilization metric, groups by year month, validates the SQL, and renders a clean line chart."
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="time">2:10-2:32</td>
+              <td class="scene-title">Feature 5: Sources, SQL, and governance audit</td>
+              <td>
+                Expand Sources. Then expand Governance Audit. Show SQL validation passed, citations, and governance evidence.
+              </td>
+              <td>
+                <div class="script">
+                  "Every answer can be reviewed. Users can expand the SQL, sources, and governance audit. This shows which metric, table, column, and validation rules were used. The assistant is explainable by design."
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="time">2:32-2:48</td>
+              <td class="scene-title">Feature 6: Restricted data protection</td>
+              <td>
+                Type: <code>List customer names with average deposit balance</code>
+                Show the assistant blocking restricted customer name and suggesting safe groupings.
+              </td>
+              <td>
+                <div class="script">
+                  "Governance is built into the workflow. If a user asks for a restricted attribute like customer name, the assistant blocks SQL generation and offers safe alternatives. This helps protect sensitive data while keeping the conversation productive."
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="time">2:48-3:00</td>
+              <td class="scene-title">Closing: Business value</td>
+              <td>
+                Show final chatbot screen with chart, answer summary, recent conversations, and feedback controls.
+              </td>
+              <td>
+                <div class="script">
+                  "CFG Enterprise Data Bot helps users move from question to trusted insight faster. It is conversational, but governed. It is LLM-powered, but controlled. And it gives business and technical teams a single assistant for definitions, SQL, charts, evidence, and feedback."
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Condensed Voiceover Script</h2>
+        <p class="script">
+          "Commercial banking teams depend on trusted data every day, but finding the right metric, table, definition, or SQL can take time. Business users may not know the right column names, and technical teams spend hours answering repeated data questions. CFG Enterprise Data Bot is designed to close that gap.
+          <br /><br />
+          This is not just a chatbot. It is a governed commercial banking analytics assistant. It combines natural language, business metadata, lineage, access rules, SQL validation, charts, and feedback into one guided experience.
+          <br /><br />
+          A user can start with a simple definition question, such as, 'What does average collected balance mean?' The assistant understands that this is informational and answers from governed business metadata without generating unnecessary SQL.
+          <br /><br />
+          If a question is ambiguous, the assistant does not guess. For example, 'average balance' can refer to multiple certified metrics. The assistant asks a clarification question and presents governed choices.
+          <br /><br />
+          Once the user selects the intended metric, the assistant preserves the original context, generates SQL, validates it against governed metadata, executes the query, and returns an analyst-style response with a result table and SQL evidence.
+          <br /><br />
+          The assistant can also create charts. When a user asks, 'Plot loan utilization by month,' it selects the certified metric, groups by year month, validates the SQL, and renders a clean trend chart.
+          <br /><br />
+          Every answer is explainable. Users can expand SQL, sources, and governance audit details to see which metrics, tables, columns, and validation rules were used.
+          <br /><br />
+          Governance is built in. If a user asks for restricted data, such as customer names, the assistant blocks SQL generation and suggests safe alternatives.
+          <br /><br />
+          CFG Enterprise Data Bot helps users move from question to trusted insight faster. It is conversational, but governed. It is LLM-powered, but controlled. And it gives business and technical teams a single assistant for definitions, SQL, charts, evidence, and feedback."
+        </p>
+      </section>
+
+      <section>
+        <h2>Recommended Sample Questions for the Demo</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Question</th>
+              <th>Feature Demonstrated</th>
+              <th>Expected Behavior</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>What does average collected balance mean?</code></td>
+              <td>Business definition</td>
+              <td>Answers from metadata only. No SQL or chart.</td>
+            </tr>
+            <tr>
+              <td><code>Show average balance by customer segment</code></td>
+              <td>Clarification workflow</td>
+              <td>Asks which certified average balance metric to use.</td>
+            </tr>
+            <tr>
+              <td><code>Average Deposit Ledger Balance</code></td>
+              <td>Conversation memory</td>
+              <td>Preserves "by customer segment" from the prior question.</td>
+            </tr>
+            <tr>
+              <td><code>Plot loan utilization by month.</code></td>
+              <td>Chart generation</td>
+              <td>Creates SQL-backed monthly line chart.</td>
+            </tr>
+            <tr>
+              <td><code>Show total deposit transaction amount by channel.</code></td>
+              <td>SQL-backed analytics</td>
+              <td>Returns governed answer grouped by transaction channel.</td>
+            </tr>
+            <tr>
+              <td><code>List customer names with average deposit balance</code></td>
+              <td>Restricted data protection</td>
+              <td>Blocks restricted customer name and suggests safe alternatives.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Recording Notes</h2>
+        <ul>
+          <li>Keep the mouse movement slow and deliberate.</li>
+          <li>Use the left recent-conversations sidebar to show the product feels persistent.</li>
+          <li>Pause briefly when the thinking state appears to highlight the governed workflow.</li>
+          <li>Expand Sources and Governance Audit only once, so the video remains fast.</li>
+          <li>Use the chart example as the visual peak of the demo.</li>
+          <li>End on the message that this is governed, explainable, and enterprise-ready.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Suggested Closing Slide Text</h2>
+        <div class="screen">
+          <strong>CFG Enterprise Data Bot</strong>
+          <p>
+            A governed analytics assistant for commercial banking data.
+          </p>
+          <ul>
+            <li>Natural language to trusted answers</li>
+            <li>Certified metrics and metadata grounding</li>
+            <li>Validated SQL and source citations</li>
+            <li>Charts, tables, audit evidence, and feedback</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
+

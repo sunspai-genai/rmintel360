@@ -30,6 +30,7 @@ class ChatResponse(BaseModel):
     response_mode: Optional[str] = None
     requires_clarification: bool
     clarification_options: List[Dict[str, Any]]
+    pending_task: Dict[str, Any] = Field(default_factory=dict)
     sql_visible: bool
     generated_sql: Optional[str]
     sql_summary: Optional[str]

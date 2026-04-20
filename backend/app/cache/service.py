@@ -27,6 +27,7 @@ class AssistantResponseCache:
         self,
         *,
         message: str,
+        conversation_id: str | None,
         user_role: str,
         limit: int,
         execute_sql: bool,
@@ -34,6 +35,8 @@ class AssistantResponseCache:
         selected_dimension_ids: list[str],
     ) -> str:
         payload = {
+            "cache_scope_version": "conversation-scoped-v2",
+            "conversation_id": conversation_id or "no-conversation",
             "message": self._normalize(message),
             "user_role": user_role,
             "limit": limit,
@@ -46,6 +49,45 @@ class AssistantResponseCache:
         }
         digest = hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode("utf-8")).hexdigest()
         return f"banking-assistant:response:{digest}"
+
+    def build_resolved_plan_key(
+        self,
+        *,
+        message: str,
+        conversation_id: str | None,
+        user_role: str,
+        limit: int,
+        execute_sql: bool,
+        intent: str | None,
+        response_mode: str | None,
+        metric_id: str | None,
+        dimension_ids: list[str],
+        filters: list[dict[str, Any]],
+        chart_requested: bool,
+        chart_type: str | None,
+        generated_sql: str | None,
+    ) -> str:
+        payload = {
+            "cache_scope_version": "resolved-governed-plan-v1",
+            "conversation_id": conversation_id or "no-conversation",
+            "message": self._normalize(message),
+            "user_role": user_role,
+            "limit": limit,
+            "execute_sql": execute_sql,
+            "intent": intent,
+            "response_mode": response_mode,
+            "metric_id": metric_id,
+            "dimension_ids": sorted(dimension_ids),
+            "filters": filters,
+            "chart_requested": chart_requested,
+            "chart_type": chart_type,
+            "generated_sql": generated_sql,
+            "app_version": self.settings.app_version,
+            "bedrock_model_id": self.settings.bedrock_model_id,
+            "metadata_version": self._metadata_version(),
+        }
+        digest = hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+        return f"banking-assistant:resolved-response:{digest}"
 
     def get(self, key: str) -> dict[str, Any] | None:
         cached = self._get_redis(key)
@@ -82,6 +124,8 @@ class AssistantResponseCache:
             return
         try:
             for key in client.scan_iter(match="banking-assistant:response:*"):
+                client.delete(key)
+            for key in client.scan_iter(match="banking-assistant:resolved-response:*"):
                 client.delete(key)
         except Exception:
             return

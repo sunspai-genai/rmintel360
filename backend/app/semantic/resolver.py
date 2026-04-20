@@ -155,6 +155,19 @@ class SemanticResolver:
         )
 
         ambiguities = metric_resolution["ambiguities"] + dimension_resolution["ambiguities"]
+        if not metric_resolution["metric"] and not metric_resolution["ambiguities"]:
+            metric_options = self._top_metric_options(classification.retrieval_context)
+            if not metric_options:
+                metric_options = self._related_metric_options(message)
+            ambiguities.insert(
+                0,
+                {
+                    "kind": "metric",
+                    "phrase": message,
+                    "question": self._metric_clarification_question(message, metric_options),
+                    "options": metric_options,
+                },
+            )
         resolved = {
             "metric": metric_resolution["metric"],
             "dimensions": dimension_resolution["dimensions"],
@@ -653,6 +666,85 @@ class SemanticResolver:
                     }
                 )
         return options[:5]
+
+    def _related_metric_options(self, message: str) -> list[dict[str, Any]]:
+        query = self._metric_search_query(message)
+        search_results = catalog_service.search_metadata(query, document_type="metric", limit=8, min_score=0.05)
+        options = []
+        seen = set()
+        for item in search_results:
+            metric = catalog_service.get_metric(item["source_id"])
+            if not metric or not metric["certified_flag"] or metric["metric_id"] in seen:
+                continue
+            seen.add(metric["metric_id"])
+            options.append(
+                {
+                    "id": metric["metric_id"],
+                    "label": metric["metric_name"],
+                    "target_type": "metric",
+                    "definition": metric["description"],
+                    "table": metric["base_table"],
+                    "column": self._first_measure_column(self._split_columns(metric["required_columns"])),
+                    "required_columns": self._split_columns(metric["required_columns"]),
+                    "calculation": metric["calculation_sql"],
+                    "subject_area": metric["subject_area"],
+                    "confidence": item["score"],
+                    "certified": metric["certified_flag"],
+                }
+            )
+        return options[:5]
+
+    def _metric_search_query(self, message: str) -> str:
+        normalized = self._normalize(message)
+        subject_terms = []
+        if "loan" in normalized or "lending" in normalized:
+            subject_terms.append("loan")
+        if "deposit" in normalized:
+            subject_terms.append("deposit")
+        if "credit" in normalized or "risk" in normalized:
+            subject_terms.extend(["credit", "risk"])
+        if "profit" in normalized or "relationship" in normalized:
+            subject_terms.extend(["relationship", "profit"])
+        metric_terms = [
+            word
+            for word in normalized.split()
+            if word
+            not in {
+                "show",
+                "give",
+                "get",
+                "list",
+                "plot",
+                "chart",
+                "graph",
+                "by",
+                "for",
+                "the",
+                "and",
+                "with",
+                "product",
+                "customer",
+                "segment",
+                "market",
+                "risk",
+                "rating",
+                "channel",
+            }
+        ]
+        if subject_terms:
+            return " ".join(dict.fromkeys(subject_terms + metric_terms))
+        return " ".join(metric_terms) or normalized
+
+    def _metric_clarification_question(self, message: str, options: list[dict[str, Any]]) -> str:
+        if options:
+            return (
+                "I could not find an exact certified governed metric for the requested measure. "
+                "Choose one of these related certified metrics, or ask an admin to curate the missing metric."
+            )
+        return (
+            "I could not find an exact certified governed metric for the requested measure, and no related certified "
+            "metric options were available. Ask an admin to curate this metric before SQL can be generated."
+        )
 
     def _top_dimension_options(self, retrieval_context: list[dict[str, Any]]) -> list[dict[str, Any]]:
         options = []

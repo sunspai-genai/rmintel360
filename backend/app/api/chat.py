@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
+from backend.app.cache.service import assistant_response_cache
 from backend.app.conversation.service import conversation_store
 from backend.app.governance.audit import governance_audit_service
 from backend.app.orchestration.llm_graph import llm_governed_assistant_graph
@@ -45,6 +46,12 @@ def chat_message(request: ChatRequest) -> dict:
     )
     response["turn_id"] = turn["turn_id"]
     return response
+
+
+@router.post("/chat/session/reset")
+def reset_chat_session() -> dict:
+    assistant_response_cache.clear()
+    return {"status": "reset", "cache_cleared": True}
 
 
 @router.get("/chat/conversations", response_model=ConversationListResponse)

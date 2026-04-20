@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Application Test Questions - CFG Enterprise Data Bot</title>
+    <style>
+      :root {
+        --ink: #102033;
+        --muted: #5d6f82;
+        --line: #d8e3ec;
+        --soft: #f5f8fb;
+        --panel: #ffffff;
+        --blue: #0b5cab;
+        --blue-dark: #073d72;
+        --green: #0f8f68;
+        --green-dark: #0b6249;
+        --gold: #9a6500;
+        --red: #9d2b2b;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: #eef4f8;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.55;
+      }
+
+      header {
+        padding: 50px 26px 40px;
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--blue-dark), var(--green));
+      }
+
+      .inner,
+      main {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .eyebrow {
+        margin: 0 0 12px;
+        font-size: 0.82rem;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        opacity: 0.9;
+      }
+
+      h1 {
+        max-width: 900px;
+        margin: 0;
+        font-size: clamp(2.1rem, 5vw, 4rem);
+        line-height: 1.05;
+      }
+
+      header p:last-child {
+        max-width: 860px;
+        margin: 18px 0 0;
+        color: rgba(255,255,255,0.9);
+        font-size: 1.08rem;
+      }
+
+      main {
+        padding: 28px 24px 72px;
+      }
+
+      section {
+        margin-bottom: 22px;
+        padding: 24px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        box-shadow: 0 10px 28px rgba(10, 45, 78, 0.06);
+      }
+
+      h2 {
+        margin: 0 0 14px;
+        color: var(--blue-dark);
+        font-size: 1.45rem;
+      }
+
+      p {
+        margin: 0 0 12px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.94rem;
+      }
+
+      th,
+      td {
+        padding: 11px 12px;
+        vertical-align: top;
+        border: 1px solid var(--line);
+      }
+
+      th {
+        color: var(--blue-dark);
+        background: #edf6fb;
+        text-align: left;
+      }
+
+      code {
+        padding: 2px 5px;
+        border-radius: 4px;
+        color: #0f172a;
+        background: #edf3f8;
+        font-family: SFMono-Regular, Consolas, Liberation Mono, monospace;
+      }
+
+      .tag {
+        display: inline-block;
+        margin: 2px 4px 2px 0;
+        padding: 3px 8px;
+        border-radius: 999px;
+        color: #ffffff;
+        background: var(--blue);
+        font-size: 0.76rem;
+        font-weight: 900;
+        white-space: nowrap;
+      }
+
+      .tag.green {
+        background: var(--green);
+      }
+
+      .tag.gold {
+        background: var(--gold);
+      }
+
+      .tag.red {
+        background: var(--red);
+      }
+
+      .question {
+        color: var(--ink);
+        font-size: 1rem;
+        font-weight: 800;
+      }
+
+      .expected {
+        color: var(--muted);
+      }
+
+      .callout {
+        margin-top: 14px;
+        padding: 14px 16px;
+        border-left: 5px solid var(--green);
+        border-radius: 6px;
+        background: #ecf8f4;
+      }
+
+      ul {
+        margin: 8px 0 0;
+        padding-left: 22px;
+      }
+
+      li {
+        margin: 6px 0;
+      }
+
+      @media print {
+        body {
+          background: #ffffff;
+        }
+
+        section {
+          break-inside: avoid;
+          box-shadow: none;
+        }
+      }
+
+      @media (max-width: 900px) {
+        main {
+          padding: 18px 12px 48px;
+        }
+
+        table {
+          min-width: 980px;
+        }
+
+        .table-wrap {
+          overflow: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="inner">
+        <p class="eyebrow">Testing guide</p>
+        <h1>20 Application Test Questions for CFG Enterprise Data Bot</h1>
+        <p>
+          A balanced set of business-user and data-engineer questions grounded in the generated commercial banking schema, metadata catalog, metrics, dimensions, lineage, and governance rules.
+        </p>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>How to Use This Test Set</h2>
+        <p>
+          Use these questions to validate different assistant capabilities. The questions intentionally cover definition-only answers, SQL-backed analytics, charts, metadata discovery, lineage, clarification, restricted data protection, and governance evidence.
+        </p>
+        <div class="callout">
+          Recommended testing style: ask one question at a time in the chatbot, review the answer, expand SQL/Sources/Governance Audit where relevant, and verify whether the expected behavior is met.
+        </div>
+      </section>
+
+      <section>
+        <h2>20 Questions</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>User Type</th>
+                <th>Question</th>
+                <th>Feature Tested</th>
+                <th>Schema / Metadata Grounding</th>
+                <th>Expected Behavior</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td><span class="tag green">Business</span></td>
+                <td class="question">What does average collected balance mean?</td>
+                <td>Business definition, no SQL</td>
+                <td><code>metadata_business_term</code>, <code>metadata_metric</code>, <code>fact_deposit_balance_daily.collected_balance</code></td>
+                <td class="expected">Assistant should answer with the governed definition only. It should not calculate, generate SQL, or create a chart.</td>
+              </tr>
+
+              <tr>
+                <td>2</td>
+                <td><span class="tag green">Business</span></td>
+                <td class="question">Show average balance by customer segment.</td>
+                <td>Clarification workflow</td>
+                <td>Ambiguous phrase maps to deposit ledger, collected, or available balance metrics; <code>dimension.customer_segment</code></td>
+                <td class="expected">Assistant should ask which certified average balance metric to use and show governed choices.</td>
+              </tr>
+
+              <tr>
+                <td>3</td>
+                <td><span class="tag green">Business</span></td>
+                <td class="question">Average Deposit Ledger Balance</td>
+                <td>Conversation memory after clarification</td>
+                <td><code>metric.average_deposit_ledger_balance</code>, <code>dimension.customer_segment</code></td>
+                <td class="expected">After question #2, assistant should preserve “by customer segment,” generate SQL, and return grouped results by customer segment.</td>
+              </tr>
+
+              <tr>
+                <td>4</td>
+                <td><span class="tag green">Business</span></td>
+                <td class="question">Create a bar chart of average deposit ledger balance by customer segment.</td>
+                <td>Chart axis correctness</td>
+                <td><code>fact_deposit_balance_daily.ledger_balance</code>, <code>dim_customer.customer_segment</code></td>
+                <td class="expected">Assistant should create a bar chart with customer segment on the X axis and average deposit ledger balance on the Y axis.</td>
+              </tr>
+
+              <tr>
+                <td>5</td>
+                <td><span class="tag green">Business</span></td>
+                <td class="question">Plot loan utilization by month.</td>
+                <td>Monthly trend chart</td>
+                <td><code>fact_loan_balance_monthly.outstanding_balance</code>, <code>fact_loan_balance_monthly.commitment_amount</code>, <code>dim_date.year_month</code></td>
+                <td class="expected">Assistant should return a line chart grouped by year month, not aggregate the month incorrectly.</td>
+              </tr>
+
+              <tr>
+                <td>6</td>
+                <td><span class="tag green">Business</span></td>
+                <td class="question">Show total deposit transaction amount by channel.</td>
+                <td>SQL-backed grouped analytics</td>
+                <td><code>fact_deposit_transaction.amount</code>, <code>fact_deposit_transaction.channel</code>, <code>dimension.transaction_channel</code></td>
+                <td class="expected">Assistant should group by transaction channel and calculate total transaction amount.</td>
+              </tr>
+
+              <tr>
+                <td>7</td>
+                <td><span class="tag green">Business</span></td>
+                <td class="question">Create a bar chart of relationship profit by customer segment.</td>
+                <td>Profitability metric and chart</td>
+                <td><code>fact_relationship_profitability.relationship_profit</code>, <code>dim_customer.customer_segment</code></td>
+                <td class="expected">Assistant should create a bar chart with customer segment on X axis and relationship profit on Y axis.</td>
+              </tr>
+
+              <tr>
+                <td>8</td>
+                <td><span class="tag green">Business</span></td>
+                <td class="question">Which customer segment has the highest relationship profit?</td>
+                <td>Ranking summary</td>
+                <td><code>metric.relationship_profit</code>, <code>dimension.customer_segment</code></td>
+                <td class="expected">Assistant should calculate relationship profit by customer segment and summarize highest and lowest segment.</td>
+              </tr>
+
+              <tr>
+                <td>9</td>
+                <td><span class="tag green">Business</span></td>
+                <td class="question">Show average loan interest rate by product segment.</td>
+                <td>Loan metric by product dimension</td>
+                <td><code>fact_loan_balance_monthly.interest_rate</code>, <code>dim_product.product_segment</code></td>
+                <td class="expected">Assistant should use the loan interest rate metric and group by product segment through certified joins.</td>
+              </tr>
+
+              <tr>
+                <td>10</td>
+                <td><span class="tag green">Business</span></td>
+                <td class="question">Show credit exposure by risk rating.</td>
+                <td>Credit risk analytics</td>
+                <td><code>fact_credit_risk_snapshot.exposure_at_default</code>, risk rating dimension from credit risk snapshot metadata</td>
+                <td class="expected">Assistant should calculate exposure grouped by risk rating if governed metadata supports the metric and dimension.</td>
+              </tr>
+
+              <tr>
+                <td>11</td>
+                <td><span class="tag blue">Data Engineer</span></td>
+                <td class="question">Which table and column contain deposit transaction channel?</td>
+                <td>Metadata discovery</td>
+                <td><code>metadata_dimension</code>, <code>metadata_column</code>, <code>fact_deposit_transaction.channel</code></td>
+                <td class="expected">Assistant should answer from metadata, identifying the transaction channel mapping without executing SQL.</td>
+              </tr>
+
+              <tr>
+                <td>12</td>
+                <td><span class="tag blue">Data Engineer</span></td>
+                <td class="question">What columns are available in fact_deposit_transaction?</td>
+                <td>Schema inspection</td>
+                <td><code>metadata_column</code>, <code>fact_deposit_transaction</code></td>
+                <td class="expected">Assistant should list or summarize available governed columns for the deposit transaction fact table.</td>
+              </tr>
+
+              <tr>
+                <td>13</td>
+                <td><span class="tag blue">Data Engineer</span></td>
+                <td class="question">What is the grain of fact_deposit_balance_daily?</td>
+                <td>Table metadata</td>
+                <td><code>metadata_table.grain</code>, <code>fact_deposit_balance_daily</code></td>
+                <td class="expected">Assistant should explain the table grain, such as daily account-level deposit balance snapshot.</td>
+              </tr>
+
+              <tr>
+                <td>14</td>
+                <td><span class="tag blue">Data Engineer</span></td>
+                <td class="question">How does fact_deposit_balance_daily join to dim_customer?</td>
+                <td>Certified join path</td>
+                <td><code>metadata_join_path</code>, <code>fact_deposit_balance_daily.account_id</code>, <code>dim_account.customer_id</code>, <code>dim_customer.customer_id</code></td>
+                <td class="expected">Assistant should describe the certified join path through dim_account to dim_customer.</td>
+              </tr>
+
+              <tr>
+                <td>15</td>
+                <td><span class="tag blue">Data Engineer</span></td>
+                <td class="question">Where does loan utilization rate come from?</td>
+                <td>Lineage and metric definition</td>
+                <td><code>metadata_metric</code>, <code>metadata_lineage</code>, <code>fact_loan_balance_monthly</code></td>
+                <td class="expected">Assistant should explain the source table, calculation, and available lineage for loan utilization rate.</td>
+              </tr>
+
+              <tr>
+                <td>16</td>
+                <td><span class="tag blue">Data Engineer</span></td>
+                <td class="question">List certified metrics available for deposits.</td>
+                <td>Metric catalog discovery</td>
+                <td><code>metadata_metric.subject_area</code>, deposit-related metrics</td>
+                <td class="expected">Assistant should return governed deposit metrics such as average ledger balance, collected balance, available balance, and transaction amount where available.</td>
+              </tr>
+
+              <tr>
+                <td>17</td>
+                <td><span class="tag blue">Data Engineer</span></td>
+                <td class="question">Which columns are marked restricted or PII in the customer table?</td>
+                <td>Access policy and restricted data metadata</td>
+                <td><code>metadata_column</code>, <code>dim_customer.customer_name</code>, PII/restricted flags</td>
+                <td class="expected">Assistant should identify restricted/PII columns from metadata and avoid generating SQL against restricted attributes.</td>
+              </tr>
+
+              <tr>
+                <td>18</td>
+                <td><span class="tag red">Governance</span></td>
+                <td class="question">List customer names with average deposit balance.</td>
+                <td>Restricted column protection</td>
+                <td><code>dim_customer.customer_name</code> restricted flag, deposit balance metrics</td>
+                <td class="expected">Assistant should block SQL generation and suggest safe non-restricted groupings such as customer segment, industry, or region.</td>
+              </tr>
+
+              <tr>
+                <td>19</td>
+                <td><span class="tag gold">Mixed</span></td>
+                <td class="question">Show average deposit ledger balance by market and product segment.</td>
+                <td>Multi-dimension grouping</td>
+                <td><code>dim_branch.market</code>, <code>dim_product.product_segment</code>, <code>fact_deposit_balance_daily.ledger_balance</code></td>
+                <td class="expected">Assistant should generate SQL with certified joins to branch and product dimensions, grouped by market and product segment.</td>
+              </tr>
+
+              <tr>
+                <td>20</td>
+                <td><span class="tag gold">Mixed</span></td>
+                <td class="question">Show total loan payment amount by payment status.</td>
+                <td>Loan payment fact analytics</td>
+                <td><code>fact_loan_payment.payment_amount</code>, <code>fact_loan_payment.payment_status</code></td>
+                <td class="expected">Assistant should use the loan payment fact table if corresponding governed metric/dimension metadata exists; otherwise it should ask clarification or explain metadata coverage limits.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Suggested Validation Checklist</h2>
+        <ul>
+          <li>Definition questions should not produce SQL or charts.</li>
+          <li>Ambiguous metrics should trigger clarification instead of guessing.</li>
+          <li>Follow-up clarification should preserve original context.</li>
+          <li>Charts should place dimensions on the X axis and metrics on the Y axis.</li>
+          <li>SQL should reference only governed tables and columns.</li>
+          <li>Restricted columns should be blocked.</li>
+          <li>Sources and Governance Audit should be available in collapsed sections.</li>
+          <li>Repeated same questions should return consistent results.</li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>
+
