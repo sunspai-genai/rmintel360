@@ -1114,6 +1114,10 @@ class LlmGovernedAssistantGraph:
                         f"{column['business_name']} is a governed business attribute. {column['description']} "
                         f"Physical column: `{table_name}.{column_name}`. Data type: {column['data_type']}."
                     )
+        if top.get("document_type") == "lineage":
+            lineage_answer = self._lineage_answer_from_search_result(top)
+            if lineage_answer:
+                return lineage_answer
         return f"{top.get('business_name')} is documented in the governed metadata catalog. Source: {top.get('source_id')}."
 
     def _structured_metadata_answer(self, message: str) -> str | None:
@@ -1131,6 +1135,9 @@ class LlmGovernedAssistantGraph:
             table_names = self._tables_in_message(message)
             if len(table_names) >= 2:
                 return self._join_path_answer(table_names[0], table_names[1])
+
+        if self._asks_for_lineage(normalized):
+            return self._lineage_answer_for_message(message)
 
         if self._asks_where_column_lives(normalized):
             return self._column_location_answer(normalized)
@@ -1154,6 +1161,24 @@ class LlmGovernedAssistantGraph:
 
     def _asks_for_join_path(self, normalized: str) -> bool:
         return "join" in normalized or "joins" in normalized
+
+    def _asks_for_lineage(self, normalized: str) -> bool:
+        lineage_terms = [
+            "lineage",
+            "come from",
+            "comes from",
+            "source",
+            "sourced",
+            "origin",
+            "upstream",
+            "transformation",
+            "transformed",
+            "loaded from",
+            "data flow",
+            "etl",
+            "pipeline",
+        ]
+        return any(term in normalized for term in lineage_terms)
 
     def _asks_for_columns(self, normalized: str) -> bool:
         return any(term in normalized for term in ["column", "columns", "field", "fields", "schema"])
@@ -1288,6 +1313,65 @@ class LlmGovernedAssistantGraph:
             lines.append(
                 f"{index}. `{join['from_table']}.{join['from_column']}` {join['join_type']} JOIN "
                 f"`{join['to_table']}.{join['to_column']}` ({join['relationship_type']}) - {join['description']}"
+            )
+        return "\n".join(lines)
+
+    def _lineage_answer_for_message(self, message: str) -> str | None:
+        results = catalog_service.search_metadata(message, document_type="lineage", limit=5, min_score=0.05)
+        lineages = []
+        seen = set()
+        for result in results:
+            lineage = self._lineage_from_search_result(result)
+            if not lineage or lineage["lineage_id"] in seen:
+                continue
+            seen.add(lineage["lineage_id"])
+            lineages.append(lineage)
+        if not lineages:
+            return None
+        exact_lineages = [lineage for lineage in lineages if self._lineage_matches_message(message, lineage)]
+        if exact_lineages:
+            lineages = exact_lineages
+        return self._format_lineage_answer(lineages)
+
+    def _lineage_answer_from_search_result(self, result: dict[str, Any]) -> str | None:
+        lineage = self._lineage_from_search_result(result)
+        if not lineage:
+            return None
+        return self._format_lineage_answer([lineage])
+
+    def _lineage_from_search_result(self, result: dict[str, Any]) -> dict[str, Any] | None:
+        lineage = catalog_service.get_lineage(result.get("source_id") or "")
+        if lineage:
+            return lineage
+        table_name = result.get("table_name")
+        column_name = result.get("column_name")
+        if table_name and column_name:
+            matches = catalog_service.list_lineage(asset_name=f"{table_name}.{column_name}")
+            return matches[0] if matches else None
+        return None
+
+    def _lineage_matches_message(self, message: str, lineage: dict[str, Any]) -> bool:
+        normalized = self._normalized_message(message)
+        target_column = self._normalized_message(lineage["target_column"].replace("_", " "))
+        source_object = self._normalized_message(lineage["source_object"])
+        if target_column and target_column in normalized:
+            return True
+        if source_object and source_object in normalized:
+            return True
+        return False
+
+    def _format_lineage_answer(self, lineages: list[dict[str, Any]]) -> str:
+        lines = ["Governed lineage from the metadata catalog:"]
+        for lineage in lineages[:5]:
+            lines.extend(
+                [
+                    f"- Target: `{lineage['target_table']}.{lineage['target_column']}`",
+                    f"  Source system: {lineage['source_system']}",
+                    f"  Source object: {lineage['source_object']}",
+                    f"  Transformation: {lineage['transformation']}",
+                    f"  Refresh frequency: {lineage['refresh_frequency']}",
+                    f"  Data owner: {lineage['data_owner']}",
+                ]
             )
         return "\n".join(lines)
 

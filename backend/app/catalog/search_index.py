@@ -458,6 +458,10 @@ def search_documents(
         score += _intent_boost(row=row, query_lower=query_lower)
         if row["document_type"] == "column" and not _contains_any(query_lower, [" column", " field", " attribute"]):
             score *= 0.92
+        if row["document_type"] == "dimension":
+            business_name_tokens = set(tokenize(row.get("business_name") or ""))
+            if query_tokens.intersection(business_name_tokens):
+                score += 0.12
         if row.get("certified_flag"):
             score *= 1.03
 

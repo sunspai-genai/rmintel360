@@ -1,0 +1,787 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Enterprise Metadata Layer Implementation Guide for Governed Data Chatbots</title>
+  <style>
+    :root {
+      --blue: #0f4f8f;
+      --blue-dark: #0a315a;
+      --green: #1f7a4d;
+      --green-dark: #145434;
+      --ink: #142033;
+      --muted: #5b677a;
+      --line: #d8e3ef;
+      --soft-blue: #eef6ff;
+      --soft-green: #eefaf3;
+      --soft-yellow: #fff8e6;
+      --panel: #ffffff;
+      --bg: #f6f9fc;
+      --code: #101828;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.55;
+    }
+    header {
+      background: linear-gradient(120deg, var(--blue), var(--green));
+      color: white;
+      padding: 36px 44px;
+    }
+    header h1 {
+      margin: 0 0 10px;
+      font-size: 34px;
+      letter-spacing: 0;
+    }
+    header p {
+      margin: 0;
+      max-width: 1120px;
+      font-size: 16px;
+      opacity: 0.94;
+    }
+    main {
+      display: grid;
+      grid-template-columns: 300px minmax(0, 1fr);
+      gap: 24px;
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    nav {
+      position: sticky;
+      top: 16px;
+      align-self: start;
+      max-height: calc(100vh - 32px);
+      overflow: auto;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+    }
+    nav h2 {
+      margin: 0 0 12px;
+      font-size: 13px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    nav a {
+      display: block;
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 14px;
+      padding: 7px 0;
+      border-bottom: 1px solid #edf2f7;
+    }
+    nav a:hover { color: var(--blue); }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 18px;
+    }
+    h2 {
+      margin: 0 0 12px;
+      color: var(--blue);
+      font-size: 24px;
+    }
+    h3 {
+      margin: 22px 0 8px;
+      color: var(--green);
+      font-size: 18px;
+    }
+    h4 {
+      margin: 18px 0 8px;
+      color: var(--ink);
+      font-size: 15px;
+    }
+    p { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 6px 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 20px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 10px;
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      background: var(--soft-blue);
+      color: var(--blue-dark);
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      background: #edf2f7;
+      color: #111827;
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-size: 0.92em;
+    }
+    pre {
+      overflow-x: auto;
+      background: var(--code);
+      color: #e5edf8;
+      padding: 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .callout {
+      border-left: 4px solid var(--green);
+      background: var(--soft-green);
+      padding: 12px 14px;
+      border-radius: 6px;
+      margin: 14px 0;
+    }
+    .warning {
+      border-left-color: #b7791f;
+      background: var(--soft-yellow);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin: 12px 0;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfdff;
+    }
+    .card strong { color: var(--blue); }
+    .flow {
+      border: 1px solid var(--line);
+      background: #fbfdff;
+      border-radius: 8px;
+      padding: 14px;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      white-space: pre-wrap;
+    }
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--soft-blue);
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 700;
+      margin-right: 4px;
+    }
+    .owner {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: var(--soft-green);
+      color: var(--green-dark);
+      font-weight: 700;
+      font-size: 12px;
+    }
+    @media (max-width: 980px) {
+      main { grid-template-columns: 1fr; padding: 14px; }
+      nav { position: static; max-height: none; }
+      .grid { grid-template-columns: 1fr; }
+      header { padding: 28px 18px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Enterprise Metadata Layer Implementation Guide</h1>
+    <p>
+      A senior data engineering and AI architecture playbook for turning a client ecosystem with raw databases
+      and scattered Excel documentation into a governed semantic foundation that can safely power an enterprise
+      data chatbot like CFG Enterprise Data Bot.
+    </p>
+  </header>
+
+  <main>
+    <nav>
+      <h2>Sections</h2>
+      <a href="#executive-overview">1. Executive Overview</a>
+      <a href="#target-architecture">2. Target Architecture</a>
+      <a href="#roadmap">3. Implementation Roadmap</a>
+      <a href="#discovery">4. Client Data Discovery Checklist</a>
+      <a href="#physical-metadata">5. Physical Metadata Inventory</a>
+      <a href="#business-metadata">6. Business Metadata and Glossary</a>
+      <a href="#metric-registry">7. Metric Registry Design</a>
+      <a href="#dimension-registry">8. Dimension and Attribute Registry</a>
+      <a href="#join-catalog">9. Table Grain and Join Path Catalog</a>
+      <a href="#lineage">10. Lineage and Source Mapping</a>
+      <a href="#quality">11. Data Quality Rules</a>
+      <a href="#security">12. Security, Privacy, and Access Governance</a>
+      <a href="#semantic-search">13. Semantic Search and Synonym Strategy</a>
+      <a href="#clarification">14. Clarification and Disambiguation Design</a>
+      <a href="#sql-guardrails">15. SQL Generation Guardrails</a>
+      <a href="#schema-blueprint">16. Metadata Table Schema Blueprint</a>
+      <a href="#excel-onboarding">17. Excel-to-Metadata Onboarding</a>
+      <a href="#certification">18. Metric Certification Workflow</a>
+      <a href="#integration">19. Client Platform Integration</a>
+      <a href="#testing">20. Testing Strategy</a>
+      <a href="#operating-model">21. Operating Model</a>
+      <a href="#production">22. Production Readiness Checklist</a>
+      <a href="#templates">23. Sample Metadata Templates</a>
+      <a href="#example">24. Example End-to-End Onboarding</a>
+      <a href="#workshop">25. Client Workshop Plan</a>
+    </nav>
+
+    <div>
+      <section id="executive-overview">
+        <h2>1. Executive Overview</h2>
+        <p>
+          A governed enterprise data chatbot cannot be built safely by connecting an LLM directly to raw database tables.
+          The LLM may understand the user question, but it does not inherently know which table, column, join path,
+          metric definition, access policy, data quality rule, or business owner is correct.
+        </p>
+        <div class="callout">
+          The chatbot will be only as reliable as the metadata, metric registry, semantic layer, and governance controls behind it.
+        </div>
+        <p>The enterprise implementation must create a metadata foundation that answers these questions:</p>
+        <ul>
+          <li>Which tables and columns are approved for analytics?</li>
+          <li>What does each business term mean?</li>
+          <li>Which metrics are certified and how are they calculated?</li>
+          <li>Which dimensions can be used to group each metric?</li>
+          <li>Which joins are approved and what is their cardinality?</li>
+          <li>Which columns are restricted, confidential, PII, or masked?</li>
+          <li>What should the bot do when a question is unclear?</li>
+          <li>How will usage, generated SQL, feedback, and quality be audited?</li>
+        </ul>
+        <p>
+          The output of this work is not just documentation. It is a machine-readable semantic and governance layer
+          that the chatbot uses at runtime.
+        </p>
+      </section>
+
+      <section id="target-architecture">
+        <h2>2. Target Architecture</h2>
+        <div class="flow">Client source databases and data lake/warehouse
+  -> physical metadata scanner
+  -> metadata catalog tables
+  -> business glossary and metric registry
+  -> semantic resolver and synonym index
+  -> governance and access policy layer
+  -> LLM orchestration
+  -> SQL generation and validation
+  -> controlled query execution
+  -> answer, chart, citation, audit
+  -> feedback and quality monitoring</div>
+        <h3>Architecture Components</h3>
+        <table>
+          <tr><th>Component</th><th>Role</th><th>Typical owner</th></tr>
+          <tr><td>Source DB / warehouse</td><td>Real customer, account, loan, deposit, transaction, finance, risk data.</td><td><span class="owner">Data platform</span></td></tr>
+          <tr><td>Metadata catalog</td><td>Machine-readable inventory of tables, columns, owners, grain, refresh, lineage.</td><td><span class="owner">Data governance</span></td></tr>
+          <tr><td>Business glossary</td><td>Definitions, synonyms, acronyms, accepted business terms.</td><td><span class="owner">Business stewards</span></td></tr>
+          <tr><td>Metric registry</td><td>Certified measures, formulas, default filters, valid dimensions, approvals.</td><td><span class="owner">Metric owners</span></td></tr>
+          <tr><td>Semantic resolver</td><td>Maps user language to governed metrics, dimensions, and filters.</td><td><span class="owner">AI/data engineering</span></td></tr>
+          <tr><td>Governance layer</td><td>Blocks unsafe columns, missing joins, uncertified metrics, and invalid SQL.</td><td><span class="owner">Security/governance</span></td></tr>
+          <tr><td>LLM orchestration</td><td>Classifies intent, interprets context, asks clarification, summarizes results.</td><td><span class="owner">AI engineering</span></td></tr>
+          <tr><td>Audit and feedback</td><td>Captures evidence, SQL, citations, user feedback, and quality issues.</td><td><span class="owner">Operations</span></td></tr>
+        </table>
+      </section>
+
+      <section id="roadmap">
+        <h2>3. Implementation Roadmap</h2>
+        <table>
+          <tr><th>Phase</th><th>Duration</th><th>Objective</th><th>Deliverables</th></tr>
+          <tr><td>0. Mobilization</td><td>1 week</td><td>Align scope, systems, stakeholders, access.</td><td>Project charter, stakeholder map, data access plan.</td></tr>
+          <tr><td>1. Discovery</td><td>2-3 weeks</td><td>Inventory data ecosystem and existing documentation.</td><td>Source inventory, table shortlist, documentation assessment.</td></tr>
+          <tr><td>2. Metadata Foundation</td><td>3-5 weeks</td><td>Create physical metadata tables and populate them.</td><td>Table/column catalog, grain, keys, refresh, owners.</td></tr>
+          <tr><td>3. Business Semantics</td><td>3-6 weeks</td><td>Define glossary, metrics, dimensions, synonyms.</td><td>Business glossary, certified metrics, dimension registry.</td></tr>
+          <tr><td>4. Governance and Security</td><td>2-4 weeks</td><td>Add access rules, PII flags, lineage, quality controls.</td><td>Access policy, lineage catalog, DQ rule inventory.</td></tr>
+          <tr><td>5. Chatbot Integration</td><td>3-6 weeks</td><td>Connect chatbot to semantic layer and client DB.</td><td>Resolver, SQL generation, validation, execution, audit.</td></tr>
+          <tr><td>6. UAT and Hardening</td><td>3-5 weeks</td><td>Test with business and technical users.</td><td>Golden question set, regression suite, production checklist.</td></tr>
+          <tr><td>7. Production Operations</td><td>Ongoing</td><td>Run, monitor, improve, and govern change.</td><td>Support model, feedback loop, certification workflow.</td></tr>
+        </table>
+      </section>
+
+      <section id="discovery">
+        <h2>4. Client Data Discovery Checklist</h2>
+        <p>Start with a structured discovery process. Do not begin with chatbot code. Begin with data understanding.</p>
+        <h3>Information to Capture</h3>
+        <table>
+          <tr><th>Question</th><th>Why it matters</th><th>Example evidence</th></tr>
+          <tr><td>What data platforms exist?</td><td>Determines connectivity, security, performance, SQL dialect.</td><td>Snowflake, Databricks, Oracle, SQL Server, Teradata, BigQuery.</td></tr>
+          <tr><td>Which subject areas are in scope?</td><td>Limits MVP and avoids uncontrolled table access.</td><td>Deposits, loans, customers, payments, risk, profitability.</td></tr>
+          <tr><td>Which reports are business critical?</td><td>Reports reveal certified metrics and common questions.</td><td>Executive dashboards, regulatory packs, finance reports.</td></tr>
+          <tr><td>Who owns each dataset?</td><td>Required for approvals and ongoing stewardship.</td><td>Data owner, steward, technical owner.</td></tr>
+          <tr><td>What documentation exists?</td><td>Identifies source material for metadata bootstrapping.</td><td>Excel data dictionary, ERD, wiki, BI semantic model.</td></tr>
+          <tr><td>What data is sensitive?</td><td>Prevents unsafe SQL and unauthorized disclosure.</td><td>PII, customer name, tax ID, account number, balances.</td></tr>
+          <tr><td>What questions do users ask?</td><td>Drives semantic layer design and UAT test set.</td><td>Top 100 business questions from analysts and executives.</td></tr>
+        </table>
+      </section>
+
+      <section id="physical-metadata">
+        <h2>5. Physical Metadata Inventory</h2>
+        <p>
+          Physical metadata describes what exists in the database. This can be partially automated through information schema scans,
+          but it still needs business validation.
+        </p>
+        <h3>Table-Level Metadata</h3>
+        <table>
+          <tr><th>Field</th><th>Description</th><th>Example</th></tr>
+          <tr><td>platform_name</td><td>Database or data platform.</td><td>Snowflake Commercial DW</td></tr>
+          <tr><td>database_name</td><td>Database/catalog name.</td><td>COMMERCIAL_BANKING</td></tr>
+          <tr><td>schema_name</td><td>Schema or namespace.</td><td>ANALYTICS</td></tr>
+          <tr><td>table_name</td><td>Physical table name.</td><td>FACT_DEPOSIT_BALANCE_DAILY</td></tr>
+          <tr><td>business_name</td><td>Human-friendly table name.</td><td>Daily Deposit Balance</td></tr>
+          <tr><td>table_type</td><td>Fact, dimension, bridge, snapshot, staging, reference.</td><td>Fact</td></tr>
+          <tr><td>grain</td><td>One row represents what?</td><td>One row per account per business date.</td></tr>
+          <tr><td>primary_key</td><td>Unique key columns.</td><td>account_id, as_of_date</td></tr>
+          <tr><td>refresh_frequency</td><td>How often data changes.</td><td>Daily</td></tr>
+          <tr><td>row_count</td><td>Approximate volume.</td><td>250 million</td></tr>
+          <tr><td>data_owner</td><td>Business accountable owner.</td><td>Deposit Data Governance</td></tr>
+          <tr><td>technical_owner</td><td>Engineering owner.</td><td>Data Platform Team</td></tr>
+          <tr><td>certified_flag</td><td>Approved for chatbot analytics?</td><td>true</td></tr>
+        </table>
+        <h3>Column-Level Metadata</h3>
+        <table>
+          <tr><th>Field</th><th>Description</th><th>Example</th></tr>
+          <tr><td>column_name</td><td>Physical column name.</td><td>ledger_balance</td></tr>
+          <tr><td>business_name</td><td>Business-friendly label.</td><td>Ledger Balance</td></tr>
+          <tr><td>data_type</td><td>Database type.</td><td>NUMBER(18,2)</td></tr>
+          <tr><td>description</td><td>Column definition.</td><td>End-of-day posted balance.</td></tr>
+          <tr><td>semantic_type</td><td>Metric, dimension, identifier, date, flag.</td><td>measure</td></tr>
+          <tr><td>nullable_flag</td><td>Can it be null?</td><td>false</td></tr>
+          <tr><td>sample_values</td><td>Safe examples, never sensitive raw PII.</td><td>10000.00, 25000.00</td></tr>
+          <tr><td>pii_flag</td><td>Personally identifiable?</td><td>false</td></tr>
+          <tr><td>restricted_flag</td><td>Restricted from chatbot SQL?</td><td>false</td></tr>
+          <tr><td>quality_notes</td><td>Known data caveats.</td><td>Null before 2022 migration.</td></tr>
+        </table>
+      </section>
+
+      <section id="business-metadata">
+        <h2>6. Business Metadata and Glossary</h2>
+        <p>
+          Business metadata explains language. It lets non-technical users ask questions naturally while the system maps
+          their terms to governed definitions.
+        </p>
+        <table>
+          <tr><th>Field</th><th>Description</th><th>Example</th></tr>
+          <tr><td>term_id</td><td>Stable term identifier.</td><td>term.collected_balance</td></tr>
+          <tr><td>term_name</td><td>Business term.</td><td>Collected Balance</td></tr>
+          <tr><td>definition</td><td>Approved business definition.</td><td>Deposit balance adjusted for outstanding float.</td></tr>
+          <tr><td>term_type</td><td>Metric, attribute, policy, product, process.</td><td>metric</td></tr>
+          <tr><td>synonyms</td><td>Alternate business phrases.</td><td>collected deposits, available collected balance</td></tr>
+          <tr><td>primary_table</td><td>Default physical table.</td><td>fact_deposit_balance_daily</td></tr>
+          <tr><td>primary_column</td><td>Default physical column.</td><td>collected_balance</td></tr>
+          <tr><td>owner</td><td>Business owner.</td><td>Deposit Product Owner</td></tr>
+          <tr><td>certified_flag</td><td>Approved for use.</td><td>true</td></tr>
+        </table>
+        <div class="warning callout">
+          Avoid definitions like "balance amount in the balance table." A useful definition must explain business meaning,
+          not repeat column names.
+        </div>
+      </section>
+
+      <section id="metric-registry">
+        <h2>7. Metric Registry Design</h2>
+        <p>
+          The metric registry is the most important table for SQL-generating chatbots. It tells the bot what it is allowed
+          to calculate and exactly how.
+        </p>
+        <h3>Required Metric Fields</h3>
+        <table>
+          <tr><th>Field</th><th>Description</th><th>Example</th></tr>
+          <tr><td>metric_id</td><td>Stable unique ID.</td><td>metric.average_deposit_ledger_balance</td></tr>
+          <tr><td>metric_name</td><td>User-facing name.</td><td>Average Deposit Ledger Balance</td></tr>
+          <tr><td>business_definition</td><td>Approved meaning.</td><td>Average daily posted commercial deposit balance.</td></tr>
+          <tr><td>calculation_sql</td><td>Formula expression, not a full query.</td><td>AVG(fdb.ledger_balance)</td></tr>
+          <tr><td>aggregation_type</td><td>SUM, AVG, COUNT, RATIO, CUSTOM.</td><td>AVG</td></tr>
+          <tr><td>base_table</td><td>Fact table used for metric.</td><td>fact_deposit_balance_daily</td></tr>
+          <tr><td>required_columns</td><td>Columns needed by formula.</td><td>ledger_balance, as_of_date, account_id</td></tr>
+          <tr><td>default_time_period</td><td>Default when user omits time.</td><td>latest_complete_month</td></tr>
+          <tr><td>valid_dimensions</td><td>Allowed groupings.</td><td>customer_segment, product_segment, market, month</td></tr>
+          <tr><td>default_filters</td><td>Approved default filters.</td><td>active_accounts_only=true</td></tr>
+          <tr><td>certification_status</td><td>Draft, certified, deprecated.</td><td>certified</td></tr>
+          <tr><td>metric_owner</td><td>Business accountable owner.</td><td>Deposit Analytics Owner</td></tr>
+          <tr><td>approved_by</td><td>Approver.</td><td>Finance Governance Council</td></tr>
+          <tr><td>version</td><td>Metric version.</td><td>1.0</td></tr>
+        </table>
+        <h3>Metric Design Rules</h3>
+        <ul>
+          <li>Every SQL-generating metric must be certified before the chatbot uses it.</li>
+          <li>Do not let the LLM invent formulas for missing metrics.</li>
+          <li>Store formulas as expressions that can be inserted into governed SQL templates.</li>
+          <li>Define whether ratio metrics are weighted or unweighted.</li>
+          <li>Define valid time grain and default time filter.</li>
+          <li>Define valid dimensions for each metric to prevent invalid joins.</li>
+        </ul>
+      </section>
+
+      <section id="dimension-registry">
+        <h2>8. Dimension and Attribute Registry</h2>
+        <p>
+          Dimensions are business attributes users can group by, filter by, or ask definitions about.
+        </p>
+        <table>
+          <tr><th>Field</th><th>Description</th><th>Example</th></tr>
+          <tr><td>dimension_id</td><td>Stable unique ID.</td><td>dimension.customer_segment</td></tr>
+          <tr><td>dimension_name</td><td>User-facing name.</td><td>Customer Segment</td></tr>
+          <tr><td>description</td><td>Business definition.</td><td>Relationship segment assigned to the customer.</td></tr>
+          <tr><td>table_name</td><td>Physical table.</td><td>dim_customer</td></tr>
+          <tr><td>column_name</td><td>Physical column.</td><td>customer_segment</td></tr>
+          <tr><td>semantic_type</td><td>Dimension, hierarchy, date, geography, product.</td><td>dimension</td></tr>
+          <tr><td>sample_values</td><td>Safe representative values.</td><td>Small Business, Middle Market, Corporate</td></tr>
+          <tr><td>hierarchy_level</td><td>Level in hierarchy if applicable.</td><td>Segment</td></tr>
+          <tr><td>parent_dimension_id</td><td>Parent hierarchy dimension.</td><td>dimension.customer_region</td></tr>
+          <tr><td>pii_flag</td><td>PII indicator.</td><td>false</td></tr>
+          <tr><td>restricted_flag</td><td>Restricted from generated SQL.</td><td>false</td></tr>
+          <tr><td>certified_flag</td><td>Approved for chatbot use.</td><td>true</td></tr>
+        </table>
+        <h3>Ambiguous Dimension Example</h3>
+        <p>
+          The word <code>segment</code> may mean <code>Customer Segment</code> or <code>Product Segment</code>.
+          The semantic layer should not guess. It should ask the user to choose.
+        </p>
+      </section>
+
+      <section id="join-catalog">
+        <h2>9. Table Grain and Join Path Catalog</h2>
+        <p>
+          SQL generation requires safe join logic. A chatbot must know how a metric base table can join to dimensions.
+        </p>
+        <h3>Join Path Fields</h3>
+        <table>
+          <tr><th>Field</th><th>Description</th><th>Example</th></tr>
+          <tr><td>join_path_id</td><td>Stable ID.</td><td>join.deposit_balance_account</td></tr>
+          <tr><td>from_table</td><td>Starting table.</td><td>fact_deposit_balance_daily</td></tr>
+          <tr><td>from_column</td><td>Starting join key.</td><td>account_id</td></tr>
+          <tr><td>to_table</td><td>Target table.</td><td>dim_account</td></tr>
+          <tr><td>to_column</td><td>Target join key.</td><td>account_id</td></tr>
+          <tr><td>relationship_type</td><td>Cardinality.</td><td>many-to-one</td></tr>
+          <tr><td>join_type</td><td>INNER, LEFT, etc.</td><td>INNER</td></tr>
+          <tr><td>certified_flag</td><td>Approved join?</td><td>true</td></tr>
+          <tr><td>description</td><td>Business explanation.</td><td>Join daily balances to account attributes.</td></tr>
+        </table>
+        <h3>Rules</h3>
+        <ul>
+          <li>Every fact table must have a documented grain.</li>
+          <li>Every approved dimension must have a certified join path from the metric base table.</li>
+          <li>Do not allow fact-to-fact joins unless explicitly approved.</li>
+          <li>Document bridge tables and many-to-many joins carefully.</li>
+          <li>Document slowly changing dimension handling.</li>
+        </ul>
+      </section>
+
+      <section id="lineage">
+        <h2>10. Lineage and Source Mapping</h2>
+        <p>
+          Lineage allows the bot to answer where a metric or column comes from and gives audit evidence for SQL answers.
+        </p>
+        <table>
+          <tr><th>Field</th><th>Description</th><th>Example</th></tr>
+          <tr><td>lineage_id</td><td>Stable lineage record ID.</td><td>lineage.deposit_ledger_balance</td></tr>
+          <tr><td>source_system</td><td>Original source.</td><td>Core Deposit Platform</td></tr>
+          <tr><td>source_object</td><td>Source table/file/API.</td><td>DDA_BALANCE_HISTORY</td></tr>
+          <tr><td>target_table</td><td>Analytics table.</td><td>fact_deposit_balance_daily</td></tr>
+          <tr><td>target_column</td><td>Analytics column.</td><td>ledger_balance</td></tr>
+          <tr><td>transformation</td><td>Business transformation logic.</td><td>End-of-day balance after posted transactions.</td></tr>
+          <tr><td>refresh_frequency</td><td>Refresh cadence.</td><td>Daily</td></tr>
+          <tr><td>pipeline_owner</td><td>ETL/ELT owner.</td><td>Deposit Data Engineering</td></tr>
+        </table>
+      </section>
+
+      <section id="quality">
+        <h2>11. Data Quality Rules</h2>
+        <p>
+          A chatbot answer can look confident even when source data is stale or incomplete. Data quality metadata helps the bot
+          decide whether to answer, warn, or block.
+        </p>
+        <table>
+          <tr><th>Rule type</th><th>Example</th><th>Chatbot behavior</th></tr>
+          <tr><td>Freshness</td><td>Balance table must refresh by 7 AM daily.</td><td>Warn or block if stale.</td></tr>
+          <tr><td>Completeness</td><td>Account ID cannot be null.</td><td>Warn if missing rate exceeds threshold.</td></tr>
+          <tr><td>Validity</td><td>Risk rating must be 1-10.</td><td>Warn if invalid values exist.</td></tr>
+          <tr><td>Reconciliation</td><td>Total deposits must match GL within tolerance.</td><td>Show certified status or caveat.</td></tr>
+          <tr><td>Uniqueness</td><td>Customer ID unique in dim_customer.</td><td>Protect join correctness.</td></tr>
+        </table>
+        <h3>Recommended Quality Rule Fields</h3>
+        <p>
+          <code>quality_rule_id</code>, <code>table_name</code>, <code>column_name</code>, <code>rule_type</code>,
+          <code>rule_sql</code>, <code>threshold</code>, <code>severity</code>, <code>owner</code>, <code>last_run_at</code>,
+          <code>last_status</code>, <code>issue_url</code>.
+        </p>
+      </section>
+
+      <section id="security">
+        <h2>12. Security, Privacy, and Access Governance</h2>
+        <p>
+          Security metadata must be part of the semantic layer. It should not be an afterthought.
+        </p>
+        <table>
+          <tr><th>Governance item</th><th>Capture</th><th>Usage</th></tr>
+          <tr><td>PII classification</td><td>Customer name, tax ID, address, email, phone.</td><td>Block or mask in SQL results.</td></tr>
+          <tr><td>Restricted columns</td><td>Columns not allowed in chatbot-generated SQL.</td><td>Ask user to select safe grouping.</td></tr>
+          <tr><td>Role-based access</td><td>Which roles can access which metrics/tables.</td><td>Filter metadata and block unauthorized queries.</td></tr>
+          <tr><td>Row-level security</td><td>Market, region, portfolio access.</td><td>Add mandatory filters or delegate to platform RLS.</td></tr>
+          <tr><td>Masking rules</td><td>Hash, redact, partial reveal.</td><td>Return masked values only when allowed.</td></tr>
+          <tr><td>Audit logging</td><td>User, prompt, SQL, result metadata, citations.</td><td>Compliance and support investigation.</td></tr>
+        </table>
+      </section>
+
+      <section id="semantic-search">
+        <h2>13. Semantic Search and Synonym Strategy</h2>
+        <p>
+          Users rarely type exact database names. The semantic layer needs synonym records and search documents.
+        </p>
+        <h3>Synonym Examples</h3>
+        <table>
+          <tr><th>User phrase</th><th>Target type</th><th>Target ID</th><th>Risk</th></tr>
+          <tr><td>balance</td><td>metric</td><td>multiple candidates</td><td>Ambiguous, ask clarification.</td></tr>
+          <tr><td>segment</td><td>dimension</td><td>customer_segment, product_segment</td><td>Ambiguous, ask clarification.</td></tr>
+          <tr><td>ledger balance</td><td>metric</td><td>average_deposit_ledger_balance</td><td>Can resolve if exact.</td></tr>
+          <tr><td>channel</td><td>dimension</td><td>transaction_channel</td><td>May need subject context.</td></tr>
+        </table>
+        <h3>Best Practices</h3>
+        <ul>
+          <li>Keep synonyms curated and versioned.</li>
+          <li>Store confidence scores but do not let confidence override governance.</li>
+          <li>Use ambiguity groups for common terms like balance, segment, exposure, margin, income.</li>
+          <li>Log unresolved phrases and use them to improve metadata.</li>
+        </ul>
+      </section>
+
+      <section id="clarification">
+        <h2>14. Clarification and Disambiguation Design</h2>
+        <p>
+          A production chatbot must ask follow-up questions when it cannot safely map user language to one governed meaning.
+        </p>
+        <h3>Clarification Triggers</h3>
+        <ul>
+          <li>Multiple metrics match the same phrase.</li>
+          <li>Multiple dimensions match the same phrase.</li>
+          <li>No certified metric exists.</li>
+          <li>Requested column is restricted.</li>
+          <li>Join path is missing or uncertified.</li>
+          <li>Time period is unclear and no default is approved.</li>
+          <li>User asks for a chart but axis mapping is unclear.</li>
+        </ul>
+        <h3>Clarification Response Pattern</h3>
+        <pre><code>I understood:
+- Grouping: Product Segment
+
+I still need:
+- a certified governed metric
+
+Choose one of these related certified metrics:
+1. Loan Utilization Rate
+2. Average Loan Outstanding Balance
+3. Loan Commitment Amount</code></pre>
+      </section>
+
+      <section id="sql-guardrails">
+        <h2>15. SQL Generation Guardrails</h2>
+        <table>
+          <tr><th>Guardrail</th><th>Required behavior</th></tr>
+          <tr><td>SELECT only</td><td>Block INSERT, UPDATE, DELETE, CREATE, DROP, COPY, CALL.</td></tr>
+          <tr><td>Allowed references</td><td>Parse SQL and reject tables/columns not in governed plan.</td></tr>
+          <tr><td>Restricted data</td><td>Block restricted columns unless masking policy explicitly allows them.</td></tr>
+          <tr><td>Certified joins</td><td>Only generate joins from metadata_join_path.</td></tr>
+          <tr><td>Query limits</td><td>Apply row limits and internal limit + 1 for truncation detection.</td></tr>
+          <tr><td>Timeouts</td><td>Set warehouse/query timeout by role and workload.</td></tr>
+          <tr><td>Cost controls</td><td>Block high-cardinality queries or require confirmation.</td></tr>
+          <tr><td>Audit</td><td>Persist prompt, plan, SQL, validation, execution metadata.</td></tr>
+        </table>
+      </section>
+
+      <section id="schema-blueprint">
+        <h2>16. Metadata Table Schema Blueprint</h2>
+        <p>Recommended minimum metadata tables:</p>
+        <table>
+          <tr><th>Table</th><th>Purpose</th><th>Critical fields</th></tr>
+          <tr><td><code>metadata_table</code></td><td>Governed table inventory.</td><td>table_name, grain, owner, refresh, certified_flag</td></tr>
+          <tr><td><code>metadata_column</code></td><td>Column definitions and security.</td><td>column_name, data_type, semantic_type, pii_flag, restricted_flag</td></tr>
+          <tr><td><code>metadata_metric</code></td><td>Certified metric registry.</td><td>metric_id, calculation_sql, base_table, required_columns, valid_dimensions</td></tr>
+          <tr><td><code>metadata_dimension</code></td><td>Business grouping attributes.</td><td>dimension_id, table_name, column_name, sample_values, certified_flag</td></tr>
+          <tr><td><code>metadata_business_term</code></td><td>Glossary.</td><td>term_name, definition, owner, primary mapping</td></tr>
+          <tr><td><code>metadata_synonym</code></td><td>User phrase mapping.</td><td>phrase, target_type, target_id, confidence</td></tr>
+          <tr><td><code>metadata_join_path</code></td><td>Certified joins.</td><td>from_table, from_column, to_table, to_column, relationship_type</td></tr>
+          <tr><td><code>metadata_lineage</code></td><td>Source-to-target mapping.</td><td>source_system, source_object, target_table, target_column, transformation</td></tr>
+          <tr><td><code>metadata_access_policy</code></td><td>Role and masking policy.</td><td>role_name, asset_type, asset_name, permission, masking_rule</td></tr>
+          <tr><td><code>metadata_quality_rule</code></td><td>Data quality controls.</td><td>rule_type, rule_sql, threshold, severity, last_status</td></tr>
+          <tr><td><code>metadata_certification</code></td><td>Approval workflow.</td><td>asset_id, status, approver, approved_at, version</td></tr>
+          <tr><td><code>metadata_change_log</code></td><td>Change history.</td><td>asset_id, change_type, changed_by, changed_at, notes</td></tr>
+        </table>
+      </section>
+
+      <section id="excel-onboarding">
+        <h2>17. Excel-to-Metadata Onboarding Process</h2>
+        <p>
+          Many clients begin with Excel data dictionaries. The implementation should standardize and load those files
+          into metadata tables.
+        </p>
+        <ol>
+          <li>Collect all existing Excel files, report definitions, wiki pages, ERDs, and BI semantic models.</li>
+          <li>Map each column in the Excel files to the target metadata schema.</li>
+          <li>Normalize names, data types, owners, and certification flags.</li>
+          <li>Identify missing mandatory fields: grain, owner, definitions, PII, metric formulas, join keys.</li>
+          <li>Load draft metadata into staging tables.</li>
+          <li>Run validation checks and produce exception reports.</li>
+          <li>Send exception reports to data stewards for cleanup.</li>
+          <li>Promote approved records to production metadata tables.</li>
+        </ol>
+        <div class="callout">
+          Treat Excel as input, not the long-term metadata system of record. The chatbot needs governed metadata in database tables or an enterprise catalog API.
+        </div>
+      </section>
+
+      <section id="certification">
+        <h2>18. Metric Certification Workflow</h2>
+        <div class="flow">Draft metric proposed
+  -> data steward reviews definition
+  -> data engineer validates SQL formula
+  -> business owner approves meaning
+  -> security reviews access and PII
+  -> UAT validates sample answers
+  -> metric marked certified
+  -> chatbot can use it for SQL generation
+  -> future changes create new version</div>
+        <h3>Certification Status Values</h3>
+        <table>
+          <tr><th>Status</th><th>Meaning</th><th>Chatbot behavior</th></tr>
+          <tr><td>draft</td><td>Being authored.</td><td>Do not use for SQL.</td></tr>
+          <tr><td>under_review</td><td>Awaiting approval.</td><td>Do not use for SQL.</td></tr>
+          <tr><td>certified</td><td>Approved for use.</td><td>Can be used if access allows.</td></tr>
+          <tr><td>deprecated</td><td>No longer recommended.</td><td>Do not use; suggest replacement.</td></tr>
+          <tr><td>retired</td><td>Removed from active use.</td><td>Block.</td></tr>
+        </table>
+      </section>
+
+      <section id="integration">
+        <h2>19. Client Platform Integration</h2>
+        <table>
+          <tr><th>Integration area</th><th>Questions to answer</th></tr>
+          <tr><td>Database connectivity</td><td>How will the app connect? Service account? OAuth? Private network?</td></tr>
+          <tr><td>Identity</td><td>How do we know the user's role and entitlement?</td></tr>
+          <tr><td>Secrets</td><td>Where are credentials stored? Vault, Secrets Manager, Key Vault?</td></tr>
+          <tr><td>Enterprise catalog</td><td>Does the client use Collibra, Alation, Purview, Atlan, Informatica?</td></tr>
+          <tr><td>BI semantic layer</td><td>Can certified metrics be imported from Tableau, Power BI, Looker, dbt metrics?</td></tr>
+          <tr><td>Observability</td><td>Where do logs, metrics, traces, audit events go?</td></tr>
+          <tr><td>Deployment</td><td>Kubernetes, ECS, Azure App Service, internal VM, serverless?</td></tr>
+        </table>
+      </section>
+
+      <section id="testing">
+        <h2>20. Testing Strategy</h2>
+        <table>
+          <tr><th>Test type</th><th>Purpose</th><th>Example</th></tr>
+          <tr><td>Metadata completeness</td><td>Ensure required metadata fields are populated.</td><td>Every certified metric has owner and formula.</td></tr>
+          <tr><td>Metric SQL validation</td><td>Ensure metric formulas compile and reference allowed columns.</td><td>Parse calculation_sql with SQL AST.</td></tr>
+          <tr><td>Join path tests</td><td>Ensure each metric can join to approved dimensions.</td><td>Loan metrics can group by product segment.</td></tr>
+          <tr><td>Access policy tests</td><td>Ensure restricted columns are blocked.</td><td>Customer name cannot be selected by business_user.</td></tr>
+          <tr><td>Prompt evaluation</td><td>Ensure common questions resolve correctly.</td><td>Top 100 business questions.</td></tr>
+          <tr><td>Clarification tests</td><td>Ensure ambiguous terms ask follow-up.</td><td>Balance by segment asks metric and dimension.</td></tr>
+          <tr><td>Regression tests</td><td>Prevent old defects from returning.</td><td>Cache cannot mix product and customer segment.</td></tr>
+        </table>
+      </section>
+
+      <section id="operating-model">
+        <h2>21. Operating Model</h2>
+        <table>
+          <tr><th>Role</th><th>Responsibilities</th></tr>
+          <tr><td>Executive sponsor</td><td>Owns business value and prioritization.</td></tr>
+          <tr><td>Product owner</td><td>Defines roadmap, user groups, acceptance criteria.</td></tr>
+          <tr><td>Data owner</td><td>Accountable for data domain and definitions.</td></tr>
+          <tr><td>Data steward</td><td>Maintains glossary, definitions, quality rules.</td></tr>
+          <tr><td>Metric owner</td><td>Approves metric formulas and usage.</td></tr>
+          <tr><td>Data engineer</td><td>Builds metadata pipelines, SQL validation, DB integration.</td></tr>
+          <tr><td>AI engineer</td><td>Builds LLM orchestration, prompts, evaluation, guardrails.</td></tr>
+          <tr><td>Security lead</td><td>Approves access controls, masking, audit.</td></tr>
+          <tr><td>Support analyst</td><td>Monitors feedback, triages issues, coordinates fixes.</td></tr>
+        </table>
+      </section>
+
+      <section id="production">
+        <h2>22. Production Readiness Checklist</h2>
+        <ul>
+          <li>All in-scope tables have grain, owner, refresh, and certification status.</li>
+          <li>All certified metrics have formulas, owners, valid dimensions, and approvals.</li>
+          <li>All dimensions have physical mappings and security classification.</li>
+          <li>All joins used by chatbot are certified.</li>
+          <li>Restricted columns are blocked or masked.</li>
+          <li>SQL validator parses actual generated SQL references.</li>
+          <li>Query timeouts, limits, and cost controls are configured.</li>
+          <li>Cache keys include resolved metric and dimension plan.</li>
+          <li>New Conversation clears session state and cache as designed.</li>
+          <li>Audit logging captures prompt, semantic plan, SQL, validation, result metadata.</li>
+          <li>Golden question regression suite passes.</li>
+          <li>Feedback loop and support process are live.</li>
+        </ul>
+      </section>
+
+      <section id="templates">
+        <h2>23. Sample Metadata Templates</h2>
+        <h3>Table Inventory Template</h3>
+        <pre><code>platform_name,database_name,schema_name,table_name,business_name,table_type,grain,primary_key,refresh_frequency,data_owner,technical_owner,certified_flag</code></pre>
+        <h3>Column Definition Template</h3>
+        <pre><code>table_name,column_name,business_name,data_type,description,semantic_type,nullable_flag,pii_flag,restricted_flag,sample_values,quality_notes</code></pre>
+        <h3>Metric Registry Template</h3>
+        <pre><code>metric_id,metric_name,business_definition,calculation_sql,aggregation_type,base_table,required_columns,valid_dimensions,default_time_period,default_filters,owner,approver,certification_status,version</code></pre>
+        <h3>Dimension Registry Template</h3>
+        <pre><code>dimension_id,dimension_name,description,table_name,column_name,semantic_type,sample_values,hierarchy_level,parent_dimension_id,pii_flag,restricted_flag,certified_flag</code></pre>
+        <h3>Join Path Template</h3>
+        <pre><code>join_path_id,from_table,from_column,to_table,to_column,relationship_type,join_type,certified_flag,description</code></pre>
+      </section>
+
+      <section id="example">
+        <h2>24. Example End-to-End Onboarding Scenario</h2>
+        <h3>Subject Area: Commercial Deposits</h3>
+        <ol>
+          <li>Identify core tables: deposit account, daily balance, deposit transaction, customer, product, branch, date.</li>
+          <li>Document table grain: one row per account per date for daily balances.</li>
+          <li>Define certified metrics: Average Ledger Balance, Average Collected Balance, Total Commercial Deposits, Transaction Amount.</li>
+          <li>Define dimensions: Customer Segment, Product Segment, Market, Transaction Channel, Year Month.</li>
+          <li>Certify joins from balance fact to account, customer, product, branch, date.</li>
+          <li>Classify sensitive columns: customer name restricted, account number masked, tax ID blocked.</li>
+          <li>Create synonyms: balance, ledger balance, collected deposits, segment, channel.</li>
+          <li>Create golden questions and expected behavior.</li>
+          <li>Run chatbot UAT with analysts and business users.</li>
+          <li>Promote certified metadata and chatbot configuration to production.</li>
+        </ol>
+      </section>
+
+      <section id="workshop">
+        <h2>25. Client Workshop Plan</h2>
+        <h3>Required Stakeholders</h3>
+        <ul>
+          <li>Business domain owner</li>
+          <li>Data governance lead</li>
+          <li>Data steward</li>
+          <li>Data platform architect</li>
+          <li>Data engineer</li>
+          <li>Security and privacy representative</li>
+          <li>BI/reporting owner</li>
+          <li>AI engineering lead</li>
+        </ul>
+        <h3>Workshop Agenda</h3>
+        <table>
+          <tr><th>Session</th><th>Topics</th><th>Output</th></tr>
+          <tr><td>1. Business goals</td><td>Use cases, target users, KPIs, risk tolerance.</td><td>Prioritized use cases.</td></tr>
+          <tr><td>2. Data inventory</td><td>Systems, tables, reports, documentation.</td><td>Source inventory and table shortlist.</td></tr>
+          <tr><td>3. Metrics</td><td>Definitions, formulas, owners, certifications.</td><td>Draft metric registry.</td></tr>
+          <tr><td>4. Dimensions and joins</td><td>Groupings, keys, grain, join paths.</td><td>Dimension and join catalog.</td></tr>
+          <tr><td>5. Security</td><td>PII, restricted columns, roles, masking.</td><td>Access policy draft.</td></tr>
+          <tr><td>6. UAT questions</td><td>Golden prompts and expected results.</td><td>Test question set.</td></tr>
+          <tr><td>7. Operating model</td><td>Ownership, change process, support.</td><td>Governance and support plan.</td></tr>
+        </table>
+        <div class="callout">
+          Recommended first implementation scope: one domain, 10-20 certified metrics, 10-15 governed dimensions,
+          25-50 golden questions, and one controlled group of users.
+        </div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

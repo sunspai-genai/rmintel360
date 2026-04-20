@@ -1,0 +1,1032 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Client Metadata and Lineage Layer Architecture Guide</title>
+  <style>
+    :root {
+      --blue: #0f4f8f;
+      --blue-dark: #0b335d;
+      --green: #1d7a52;
+      --green-dark: #0f5132;
+      --ink: #172033;
+      --muted: #667085;
+      --line: #d8e3ef;
+      --soft-blue: #edf6ff;
+      --soft-green: #eefaf3;
+      --soft-yellow: #fff8e6;
+      --soft-red: #fff1f0;
+      --bg: #f6f9fc;
+      --panel: #ffffff;
+      --code: #101828;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.56;
+    }
+    header {
+      background: linear-gradient(120deg, var(--blue), var(--green));
+      color: #fff;
+      padding: 38px 44px;
+    }
+    header h1 {
+      margin: 0 0 10px;
+      font-size: 34px;
+      letter-spacing: 0;
+    }
+    header p {
+      margin: 0;
+      max-width: 1160px;
+      font-size: 16px;
+      opacity: 0.95;
+    }
+    main {
+      display: grid;
+      grid-template-columns: 310px minmax(0, 1fr);
+      gap: 24px;
+      max-width: 1520px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    nav {
+      position: sticky;
+      top: 16px;
+      align-self: start;
+      max-height: calc(100vh - 32px);
+      overflow: auto;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+    }
+    nav h2 {
+      margin: 0 0 12px;
+      font-size: 13px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    nav a {
+      display: block;
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 14px;
+      padding: 7px 0;
+      border-bottom: 1px solid #edf2f7;
+    }
+    nav a:hover { color: var(--blue); }
+    .content {
+      min-width: 0;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 18px;
+    }
+    h2 {
+      margin: 0 0 14px;
+      font-size: 24px;
+      color: var(--blue-dark);
+    }
+    h3 {
+      margin: 22px 0 8px;
+      font-size: 18px;
+      color: var(--green-dark);
+    }
+    h4 {
+      margin: 18px 0 8px;
+      font-size: 15px;
+      color: var(--ink);
+    }
+    p { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 6px 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 10px;
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      background: var(--soft-blue);
+      color: var(--blue-dark);
+    }
+    code {
+      background: #eef2f7;
+      color: var(--code);
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-family: Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+    pre {
+      background: #101828;
+      color: #f8fafc;
+      border-radius: 8px;
+      padding: 16px;
+      overflow: auto;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin: 12px 0;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 14px;
+    }
+    .card strong {
+      color: var(--blue-dark);
+      display: block;
+      margin-bottom: 6px;
+    }
+    .callout {
+      border-left: 5px solid var(--green);
+      background: var(--soft-green);
+      padding: 13px 15px;
+      margin: 14px 0;
+      border-radius: 6px;
+    }
+    .warning {
+      border-left: 5px solid #d92d20;
+      background: var(--soft-red);
+      padding: 13px 15px;
+      margin: 14px 0;
+      border-radius: 6px;
+    }
+    .note {
+      border-left: 5px solid #f2b705;
+      background: var(--soft-yellow);
+      padding: 13px 15px;
+      margin: 14px 0;
+      border-radius: 6px;
+    }
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin: 16px 0;
+    }
+    .flow div {
+      border: 1px solid var(--line);
+      background: var(--soft-blue);
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 92px;
+      font-size: 13px;
+    }
+    .flow strong {
+      display: block;
+      color: var(--blue-dark);
+      margin-bottom: 5px;
+    }
+    .badge {
+      display: inline-block;
+      background: var(--soft-blue);
+      border: 1px solid var(--line);
+      color: var(--blue-dark);
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 12px;
+      margin: 2px 4px 2px 0;
+    }
+    @media (max-width: 980px) {
+      main { grid-template-columns: 1fr; padding: 14px; }
+      nav { position: static; max-height: none; }
+      .grid { grid-template-columns: 1fr; }
+      .flow { grid-template-columns: 1fr; }
+      header { padding: 28px 22px; }
+      header h1 { font-size: 28px; }
+      section { padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Metadata and Lineage Layer Architecture Guide</h1>
+    <p>
+      A practical step-by-step implementation guide for designing the enterprise metadata, metric, semantic,
+      governance, and lineage foundation required for a governed AI data assistant in a client environment.
+    </p>
+  </header>
+
+  <main>
+    <nav>
+      <h2>Guide Sections</h2>
+      <a href="#purpose">1. Purpose</a>
+      <a href="#principles">2. Architecture Principles</a>
+      <a href="#target-architecture">3. Target Architecture</a>
+      <a href="#roadmap">4. Stepwise Roadmap</a>
+      <a href="#discovery">5. Discovery Phase</a>
+      <a href="#domain-scope">6. Domain Scope</a>
+      <a href="#metadata-model">7. Metadata Model</a>
+      <a href="#physical-metadata">8. Physical Metadata</a>
+      <a href="#business-glossary">9. Business Glossary</a>
+      <a href="#metric-registry">10. Metric Registry</a>
+      <a href="#dimension-registry">11. Dimension Registry</a>
+      <a href="#lineage-model">12. Lineage Model</a>
+      <a href="#lineage-capture">13. Lineage Capture</a>
+      <a href="#join-catalog">14. Join Path Catalog</a>
+      <a href="#semantic-layer">15. Semantic Layer</a>
+      <a href="#governance">16. Governance Controls</a>
+      <a href="#quality">17. Data Quality</a>
+      <a href="#security">18. Security and Privacy</a>
+      <a href="#ingestion">19. Metadata Ingestion</a>
+      <a href="#curation">20. Curation Workflow</a>
+      <a href="#assistant-integration">21. AI Assistant Integration</a>
+      <a href="#testing">22. Testing and Certification</a>
+      <a href="#operating-model">23. Operating Model</a>
+      <a href="#templates">24. Templates</a>
+      <a href="#checklist">25. Readiness Checklist</a>
+    </nav>
+
+    <div class="content">
+      <section id="purpose">
+        <h2>1. Purpose</h2>
+        <p>
+          A governed AI data assistant is only as trustworthy as the metadata layer behind it. The assistant should
+          never guess which table, column, metric, join, or lineage path to use. It should retrieve governed context,
+          resolve the user's meaning against certified assets, ask clarification when there are multiple valid meanings,
+          generate SQL only from approved definitions, and show source evidence.
+        </p>
+        <div class="callout">
+          The goal is not just to document data. The goal is to create a machine-usable metadata layer that can safely
+          drive semantic resolution, SQL generation, source citation, lineage explanation, and governance audit.
+        </div>
+        <h3>What This Guide Helps You Build</h3>
+        <ul>
+          <li>A physical metadata inventory for enterprise tables and columns.</li>
+          <li>A business glossary with approved business definitions.</li>
+          <li>A certified metric registry with formulas, owners, and approved SQL expressions.</li>
+          <li>A governed dimension registry for attributes users can group, filter, and chart by.</li>
+          <li>A join path catalog so the assistant only joins tables using approved relationships.</li>
+          <li>A lineage model showing source systems, source objects, transformations, targets, owners, and refresh cadence.</li>
+          <li>A semantic and synonym layer so business language maps to governed data assets.</li>
+          <li>A curation and certification workflow for ongoing change management.</li>
+        </ul>
+      </section>
+
+      <section id="principles">
+        <h2>2. Architecture Principles</h2>
+        <table>
+          <tr><th>Principle</th><th>Meaning</th><th>Why It Matters</th></tr>
+          <tr>
+            <td>Governed first</td>
+            <td>The assistant may only use certified metadata assets for SQL and charts.</td>
+            <td>Prevents hallucinated columns, unsafe joins, and inconsistent metrics.</td>
+          </tr>
+          <tr>
+            <td>Clarify before executing</td>
+            <td>If a term maps to multiple assets, the assistant asks the user to choose.</td>
+            <td>Prevents wrong answers for terms like balance, segment, revenue, exposure, or customer.</td>
+          </tr>
+          <tr>
+            <td>Separate business meaning from physical storage</td>
+            <td>Business terms and metrics should not be buried only in table comments or BI reports.</td>
+            <td>Lets non-technical users ask natural questions while SQL still uses physical assets safely.</td>
+          </tr>
+          <tr>
+            <td>Lineage is evidence</td>
+            <td>Every trusted answer should trace back to source system, transformation, and target data asset.</td>
+            <td>Builds confidence with business, audit, risk, and compliance teams.</td>
+          </tr>
+          <tr>
+            <td>Metadata is product data</td>
+            <td>Metadata must have owners, quality checks, lifecycle, releases, and support SLAs.</td>
+            <td>Keeps the assistant reliable after the MVP becomes production-grade.</td>
+          </tr>
+        </table>
+      </section>
+
+      <section id="target-architecture">
+        <h2>3. Target Architecture</h2>
+        <div class="flow">
+          <div><strong>Source Platforms</strong>Core banking, loan servicing, CRM, risk, finance, data warehouse, data lake, BI reports.</div>
+          <div><strong>Metadata Harvesting</strong>Schema crawler, SQL parser, ETL parser, BI scanner, manual Excel intake.</div>
+          <div><strong>Metadata Lake</strong>Raw harvested metadata, profiling results, lineage events, operational logs.</div>
+          <div><strong>Governed Catalog</strong>Certified tables, columns, terms, metrics, dimensions, joins, lineage, policies.</div>
+          <div><strong>AI Assistant</strong>Retrieval, semantic resolution, clarification, SQL generation, execution, charts, citations.</div>
+        </div>
+        <h3>Recommended Logical Components</h3>
+        <div class="grid">
+          <div class="card">
+            <strong>Metadata Store</strong>
+            Stores governed metadata tables. Can be PostgreSQL, Snowflake, Databricks SQL, SQL Server, or a catalog platform.
+          </div>
+          <div class="card">
+            <strong>Search Index</strong>
+            Supports keyword and vector search across terms, metrics, columns, lineage, and synonyms.
+          </div>
+          <div class="card">
+            <strong>Curation UI</strong>
+            Allows data stewards to review, approve, reject, and certify metadata changes.
+          </div>
+          <div class="card">
+            <strong>Lineage Engine</strong>
+            Captures lineage from ETL jobs, SQL transformations, orchestration tools, BI models, and source mappings.
+          </div>
+          <div class="card">
+            <strong>Governance API</strong>
+            Serves certified metadata to the assistant and enforces access policies.
+          </div>
+          <div class="card">
+            <strong>Observability Layer</strong>
+            Tracks failed resolutions, clarification rates, wrong-answer feedback, and metadata gaps.
+          </div>
+        </div>
+      </section>
+
+      <section id="roadmap">
+        <h2>4. Stepwise Roadmap</h2>
+        <table>
+          <tr><th>Step</th><th>Objective</th><th>Primary Output</th><th>Typical Duration</th></tr>
+          <tr><td>1</td><td>Confirm priority use cases and domains.</td><td>Use case inventory and domain shortlist.</td><td>1 week</td></tr>
+          <tr><td>2</td><td>Inventory available data and documentation.</td><td>Source system, table, report, and Excel inventory.</td><td>1-2 weeks</td></tr>
+          <tr><td>3</td><td>Design the metadata schema.</td><td>Metadata logical model and physical DDL.</td><td>1 week</td></tr>
+          <tr><td>4</td><td>Load physical metadata.</td><td>Certified table and column inventory.</td><td>1-2 weeks</td></tr>
+          <tr><td>5</td><td>Create business glossary and metric registry.</td><td>Approved definitions and metric formulas.</td><td>2-4 weeks</td></tr>
+          <tr><td>6</td><td>Capture lineage and join paths.</td><td>Source-to-target and table-join catalog.</td><td>2-4 weeks</td></tr>
+          <tr><td>7</td><td>Implement semantic mapping and synonyms.</td><td>Business language to data asset mappings.</td><td>1-2 weeks</td></tr>
+          <tr><td>8</td><td>Certify and test with golden questions.</td><td>Validated assistant-ready metadata release.</td><td>2 weeks</td></tr>
+          <tr><td>9</td><td>Operate and continuously improve.</td><td>Monitoring dashboard, issue workflow, release cadence.</td><td>Ongoing</td></tr>
+        </table>
+      </section>
+
+      <section id="discovery">
+        <h2>5. Discovery Phase</h2>
+        <p>
+          Start with a structured discovery phase. Do not begin by connecting the assistant to every enterprise table.
+          Begin with a narrow business domain, high-value questions, and known trusted datasets.
+        </p>
+        <h3>Information to Collect</h3>
+        <table>
+          <tr><th>Category</th><th>Questions to Ask</th><th>Evidence to Collect</th></tr>
+          <tr>
+            <td>Business use cases</td>
+            <td>What questions do users ask repeatedly? Which decisions depend on these answers?</td>
+            <td>Report catalog, dashboard screenshots, SQL extracts, business requirements.</td>
+          </tr>
+          <tr>
+            <td>Data platforms</td>
+            <td>Where does the data live? Warehouse, lake, mart, ODS, CRM, core systems?</td>
+            <td>Connection inventory, schemas, platform diagrams, access model.</td>
+          </tr>
+          <tr>
+            <td>Existing documentation</td>
+            <td>Are table and column definitions in Excel, SharePoint, Collibra, Alation, Purview, dbt, or Confluence?</td>
+            <td>Data dictionaries, glossary exports, metric documents, lineage documents.</td>
+          </tr>
+          <tr>
+            <td>Known pain points</td>
+            <td>Which terms are ambiguous? Which metrics have multiple definitions?</td>
+            <td>Examples: balance, exposure, revenue, segment, customer, active account.</td>
+          </tr>
+          <tr>
+            <td>Governance constraints</td>
+            <td>Which columns are PII, PCI, confidential, restricted, or masked?</td>
+            <td>Data classification rules, access policies, regulatory constraints.</td>
+          </tr>
+        </table>
+        <div class="note">
+          Recommended starting scope: one business domain, 10-20 certified metrics, 10-15 certified dimensions,
+          5-10 core tables, and 30-50 golden test questions.
+        </div>
+      </section>
+
+      <section id="domain-scope">
+        <h2>6. Domain Scope</h2>
+        <p>
+          Define domain boundaries before designing metadata. A domain is a business area with a coherent set of
+          questions, owners, source systems, and metrics.
+        </p>
+        <h3>Example Commercial Banking Domains</h3>
+        <table>
+          <tr><th>Domain</th><th>Example Metrics</th><th>Example Dimensions</th><th>Likely Source Systems</th></tr>
+          <tr>
+            <td>Deposits</td>
+            <td>Average ledger balance, collected balance, available balance, transaction amount.</td>
+            <td>Customer segment, product segment, branch, market, channel, month.</td>
+            <td>Core deposit platform, transaction processing, product master.</td>
+          </tr>
+          <tr>
+            <td>Loans</td>
+            <td>Outstanding balance, commitment amount, utilization rate, past due amount.</td>
+            <td>Loan product, risk rating, industry, relationship manager, month.</td>
+            <td>Loan servicing, collateral system, credit facility master.</td>
+          </tr>
+          <tr>
+            <td>Credit Risk</td>
+            <td>Probability of default, watchlist exposure, delinquency rate, non-accrual balance.</td>
+            <td>Risk rating, delinquency bucket, industry, region, customer segment.</td>
+            <td>Credit risk platform, rating model, loan servicing.</td>
+          </tr>
+          <tr>
+            <td>Profitability</td>
+            <td>Relationship profit, fee income, net interest income, allocated expense.</td>
+            <td>Customer segment, market, industry, product, month.</td>
+            <td>Finance allocation engine, general ledger, profitability mart.</td>
+          </tr>
+        </table>
+      </section>
+
+      <section id="metadata-model">
+        <h2>7. Metadata Model</h2>
+        <p>
+          The metadata model should support both humans and machines. Humans need definitions, ownership, and
+          certification status. The AI assistant needs exact mappings, formulas, join paths, synonyms, lineage, access
+          rules, and examples.
+        </p>
+        <h3>Core Metadata Entities</h3>
+        <table>
+          <tr><th>Entity</th><th>Purpose</th><th>Used By Assistant For</th></tr>
+          <tr><td><code>metadata_table</code></td><td>Certified data tables and grains.</td><td>Table discovery, source citation, SQL validation.</td></tr>
+          <tr><td><code>metadata_column</code></td><td>Physical columns, data types, descriptions, classifications.</td><td>Column validation, PII blocking, schema answers.</td></tr>
+          <tr><td><code>metadata_business_term</code></td><td>Business definitions independent of physical storage.</td><td>Definition-only answers.</td></tr>
+          <tr><td><code>metadata_metric</code></td><td>Certified measures and formulas.</td><td>SQL generation and metric clarification.</td></tr>
+          <tr><td><code>metadata_dimension</code></td><td>Certified grouping/filtering attributes.</td><td>Group by, filters, chart axes.</td></tr>
+          <tr><td><code>metadata_join_path</code></td><td>Approved relationships between tables.</td><td>Safe SQL joins.</td></tr>
+          <tr><td><code>metadata_lineage</code></td><td>Source-to-target lineage and transformations.</td><td>Lineage answers and audit evidence.</td></tr>
+          <tr><td><code>metadata_synonym</code></td><td>Business phrases mapped to governed assets.</td><td>Semantic resolution and clarification.</td></tr>
+          <tr><td><code>metadata_access_policy</code></td><td>Role-based permissions and masking rules.</td><td>Governance enforcement.</td></tr>
+          <tr><td><code>metadata_quality_rule</code></td><td>Data quality expectations and results.</td><td>Trust indicators and answer warnings.</td></tr>
+        </table>
+      </section>
+
+      <section id="physical-metadata">
+        <h2>8. Physical Metadata</h2>
+        <p>
+          Physical metadata describes the real platform objects. This is the foundation for safe SQL generation.
+        </p>
+        <h3>Minimum Fields for Tables</h3>
+        <table>
+          <tr><th>Field</th><th>Description</th><th>Example</th></tr>
+          <tr><td><code>platform_name</code></td><td>Data platform or engine.</td><td>Snowflake, Databricks, Oracle, SQL Server.</td></tr>
+          <tr><td><code>database_name</code></td><td>Physical database/catalog.</td><td>COMMERCIAL_BANKING_PROD</td></tr>
+          <tr><td><code>schema_name</code></td><td>Physical schema.</td><td>DEPOSIT_MART</td></tr>
+          <tr><td><code>table_name</code></td><td>Physical table or view.</td><td>FACT_DEPOSIT_BALANCE_DAILY</td></tr>
+          <tr><td><code>business_name</code></td><td>Human-readable name.</td><td>Daily Deposit Balance</td></tr>
+          <tr><td><code>table_type</code></td><td>Fact, dimension, bridge, reference, snapshot.</td><td>Fact</td></tr>
+          <tr><td><code>grain</code></td><td>One-row meaning.</td><td>One row per account per business date.</td></tr>
+          <tr><td><code>refresh_frequency</code></td><td>Refresh cadence.</td><td>Daily</td></tr>
+          <tr><td><code>certified_flag</code></td><td>Whether assistant can use it.</td><td>true</td></tr>
+          <tr><td><code>data_owner</code></td><td>Business or data owner.</td><td>Deposit Data Governance</td></tr>
+        </table>
+        <h3>Minimum Fields for Columns</h3>
+        <table>
+          <tr><th>Field</th><th>Description</th><th>Example</th></tr>
+          <tr><td><code>table_name</code></td><td>Parent table.</td><td>FACT_DEPOSIT_BALANCE_DAILY</td></tr>
+          <tr><td><code>column_name</code></td><td>Physical column.</td><td>LEDGER_BALANCE</td></tr>
+          <tr><td><code>business_name</code></td><td>Business label.</td><td>Ledger Balance</td></tr>
+          <tr><td><code>data_type</code></td><td>Physical type.</td><td>DECIMAL(18,2)</td></tr>
+          <tr><td><code>description</code></td><td>Column definition.</td><td>End-of-day posted account balance.</td></tr>
+          <tr><td><code>semantic_type</code></td><td>Measure, dimension, date, key, flag, code.</td><td>Measure</td></tr>
+          <tr><td><code>nullable_flag</code></td><td>Whether nulls are allowed.</td><td>false</td></tr>
+          <tr><td><code>pii_flag</code></td><td>PII indicator.</td><td>false</td></tr>
+          <tr><td><code>restricted_flag</code></td><td>Whether assistant SQL should block it.</td><td>false</td></tr>
+          <tr><td><code>sample_values</code></td><td>Safe examples, never raw sensitive data.</td><td>Commercial, Treasury, Branch</td></tr>
+        </table>
+        <div class="warning">
+          Do not put sensitive sample values such as customer names, tax IDs, account numbers, or addresses into
+          metadata used by the assistant. Use masked or synthetic examples.
+        </div>
+      </section>
+
+      <section id="business-glossary">
+        <h2>9. Business Glossary</h2>
+        <p>
+          The glossary defines business meaning. It should answer questions like "What does collected balance mean?"
+          without generating SQL.
+        </p>
+        <h3>Glossary Fields</h3>
+        <table>
+          <tr><th>Field</th><th>Purpose</th></tr>
+          <tr><td><code>term_id</code></td><td>Stable unique identifier, such as <code>term.collected_balance</code>.</td></tr>
+          <tr><td><code>term_name</code></td><td>Business term shown to users.</td></tr>
+          <tr><td><code>definition</code></td><td>Approved business definition.</td></tr>
+          <tr><td><code>term_type</code></td><td>Metric, dimension, concept, policy, process, data quality rule.</td></tr>
+          <tr><td><code>calculation</code></td><td>Optional plain-language calculation.</td></tr>
+          <tr><td><code>primary_table</code></td><td>Optional table mapping.</td></tr>
+          <tr><td><code>primary_column</code></td><td>Optional column mapping.</td></tr>
+          <tr><td><code>owner</code></td><td>Business owner accountable for definition.</td></tr>
+          <tr><td><code>certification_status</code></td><td>Draft, reviewed, certified, deprecated.</td></tr>
+          <tr><td><code>effective_date</code></td><td>When definition became valid.</td></tr>
+        </table>
+        <h3>Best Practices</h3>
+        <ul>
+          <li>Use business language first, physical mapping second.</li>
+          <li>Capture synonyms and forbidden synonyms.</li>
+          <li>Document common confusion points, such as ledger balance versus collected balance.</li>
+          <li>Version definitions when business meaning changes.</li>
+          <li>Require owner approval before a term becomes assistant-visible.</li>
+        </ul>
+      </section>
+
+      <section id="metric-registry">
+        <h2>10. Metric Registry</h2>
+        <p>
+          The metric registry is the most important table for analytical questions. It tells the assistant which
+          business measures are certified and exactly how to calculate them.
+        </p>
+        <h3>Required Metric Fields</h3>
+        <table>
+          <tr><th>Field</th><th>Description</th><th>Example</th></tr>
+          <tr><td><code>metric_id</code></td><td>Stable ID.</td><td>metric.average_deposit_ledger_balance</td></tr>
+          <tr><td><code>metric_name</code></td><td>User-facing name.</td><td>Average Deposit Ledger Balance</td></tr>
+          <tr><td><code>description</code></td><td>Business definition.</td><td>Average daily posted commercial deposit balance.</td></tr>
+          <tr><td><code>calculation_sql</code></td><td>Approved SQL expression only, not full query.</td><td>AVG(fdb.ledger_balance)</td></tr>
+          <tr><td><code>aggregation_type</code></td><td>SUM, AVG, COUNT, RATIO_OF_SUMS, DISTINCT_COUNT.</td><td>AVG</td></tr>
+          <tr><td><code>base_table</code></td><td>Primary fact table.</td><td>fact_deposit_balance_daily</td></tr>
+          <tr><td><code>required_columns</code></td><td>Columns used by the formula.</td><td>ledger_balance, as_of_date, account_id</td></tr>
+          <tr><td><code>default_time_period</code></td><td>Default if user omits date.</td><td>latest_complete_month</td></tr>
+          <tr><td><code>allowed_dimensions</code></td><td>Optional list of compatible dimensions.</td><td>customer_segment, product_segment, market</td></tr>
+          <tr><td><code>owner</code></td><td>Business owner.</td><td>Deposit Analytics</td></tr>
+          <tr><td><code>certified_flag</code></td><td>Assistant may use only certified metrics.</td><td>true</td></tr>
+        </table>
+        <h3>Metric Certification Rules</h3>
+        <ul>
+          <li>The formula must parse successfully with a SQL parser.</li>
+          <li>Every referenced table and column must exist in certified metadata.</li>
+          <li>The formula must not reference restricted columns unless explicitly allowed by policy.</li>
+          <li>The formula must have a business owner and technical owner.</li>
+          <li>The formula must pass reconciliation against an existing report or trusted SQL result.</li>
+          <li>Ambiguous metrics must have clarification options, not hidden defaults.</li>
+        </ul>
+        <div class="warning">
+          Never allow the assistant to invent metric formulas. Missing metrics should trigger a clarification or
+          curation request, not generated SQL.
+        </div>
+      </section>
+
+      <section id="dimension-registry">
+        <h2>11. Dimension Registry</h2>
+        <p>
+          Dimensions are governed attributes users can group, filter, or chart by. The assistant should use only
+          certified dimensions, not arbitrary columns.
+        </p>
+        <h3>Required Dimension Fields</h3>
+        <table>
+          <tr><th>Field</th><th>Description</th><th>Example</th></tr>
+          <tr><td><code>dimension_id</code></td><td>Stable ID.</td><td>dimension.customer_segment</td></tr>
+          <tr><td><code>dimension_name</code></td><td>User-facing label.</td><td>Customer Segment</td></tr>
+          <tr><td><code>description</code></td><td>Business definition.</td><td>Relationship segment assigned by commercial banking.</td></tr>
+          <tr><td><code>table_name</code></td><td>Physical table.</td><td>dim_customer</td></tr>
+          <tr><td><code>column_name</code></td><td>Physical column.</td><td>customer_segment</td></tr>
+          <tr><td><code>sample_values</code></td><td>Safe sample categories.</td><td>Corporate Banking, Middle Market</td></tr>
+          <tr><td><code>hierarchy_name</code></td><td>Optional hierarchy.</td><td>Customer Geography</td></tr>
+          <tr><td><code>sort_order_rule</code></td><td>Optional reporting sort.</td><td>Business-defined segment order</td></tr>
+          <tr><td><code>restricted_flag</code></td><td>Whether assistant can use it in SQL.</td><td>false</td></tr>
+          <tr><td><code>certified_flag</code></td><td>Assistant-visible flag.</td><td>true</td></tr>
+        </table>
+        <h3>Dimension Ambiguity Examples</h3>
+        <table>
+          <tr><th>User Phrase</th><th>Possible Meanings</th><th>Expected Assistant Behavior</th></tr>
+          <tr><td>segment</td><td>Customer Segment, Product Segment</td><td>Ask user to choose.</td></tr>
+          <tr><td>region</td><td>Customer Region, Branch Region, Relationship Manager Region</td><td>Ask user to choose.</td></tr>
+          <tr><td>channel</td><td>Transaction Channel, Origination Channel, Service Channel</td><td>Use exact domain context or ask.</td></tr>
+          <tr><td>customer</td><td>Customer ID, Customer Name, Customer Segment</td><td>Block restricted columns and offer safe options.</td></tr>
+        </table>
+      </section>
+
+      <section id="lineage-model">
+        <h2>12. Lineage Model</h2>
+        <p>
+          Lineage explains where data comes from, how it is transformed, where it lands, and who owns it. For an AI
+          assistant, lineage is not optional. It is part of source citation and trust.
+        </p>
+        <h3>Lineage Levels</h3>
+        <table>
+          <tr><th>Level</th><th>Description</th><th>Use Case</th></tr>
+          <tr><td>System lineage</td><td>Source system to target platform.</td><td>Answer "where does this data come from?"</td></tr>
+          <tr><td>Table lineage</td><td>Source object to target table/view.</td><td>Impact analysis and audit.</td></tr>
+          <tr><td>Column lineage</td><td>Source column to target column.</td><td>Precise lineage answers and transformation evidence.</td></tr>
+          <tr><td>Transformation lineage</td><td>SQL, ETL, dbt model, mapping logic.</td><td>Explain how a value was derived.</td></tr>
+          <tr><td>Report lineage</td><td>Dataset to BI semantic model/report.</td><td>Reconcile assistant answers with dashboards.</td></tr>
+        </table>
+        <h3>Required Lineage Fields</h3>
+        <table>
+          <tr><th>Field</th><th>Description</th><th>Example</th></tr>
+          <tr><td><code>lineage_id</code></td><td>Stable lineage ID.</td><td>lineage.deposit_ledger_balance</td></tr>
+          <tr><td><code>source_system</code></td><td>Origin system.</td><td>Core Deposit Platform</td></tr>
+          <tr><td><code>source_database</code></td><td>Optional source database.</td><td>CORE_DEP_PROD</td></tr>
+          <tr><td><code>source_object</code></td><td>Source table, file, API, model, or report.</td><td>Daily Account Balance Snapshot</td></tr>
+          <tr><td><code>source_column</code></td><td>Optional source column.</td><td>posted_balance</td></tr>
+          <tr><td><code>target_table</code></td><td>Target table.</td><td>fact_deposit_balance_daily</td></tr>
+          <tr><td><code>target_column</code></td><td>Target column.</td><td>ledger_balance</td></tr>
+          <tr><td><code>transformation</code></td><td>Plain-language transformation.</td><td>End-of-day balances loaded after nightly core processing.</td></tr>
+          <tr><td><code>transformation_sql</code></td><td>Optional SQL or SQL hash.</td><td>SUM/CAST/CASE expression or model reference.</td></tr>
+          <tr><td><code>pipeline_name</code></td><td>ETL/dbt/job name.</td><td>dbt_deposit_balance_daily</td></tr>
+          <tr><td><code>refresh_frequency</code></td><td>Daily, monthly, near real-time.</td><td>Daily</td></tr>
+          <tr><td><code>data_owner</code></td><td>Owner accountable for lineage.</td><td>Deposit Data Governance</td></tr>
+        </table>
+      </section>
+
+      <section id="lineage-capture">
+        <h2>13. Lineage Capture</h2>
+        <p>
+          Use automated lineage capture where possible, but expect manual curation for business-friendly explanations.
+          Automated lineage can identify technical flow; stewards must certify meaning.
+        </p>
+        <h3>Capture Methods</h3>
+        <table>
+          <tr><th>Method</th><th>What It Captures</th><th>Best For</th><th>Limitations</th></tr>
+          <tr>
+            <td>SQL parsing</td>
+            <td>Table and column dependencies from SQL scripts, views, dbt models.</td>
+            <td>Warehouse transformations.</td>
+            <td>Dynamic SQL and stored procedures may need special handling.</td>
+          </tr>
+          <tr>
+            <td>ETL connector extraction</td>
+            <td>Mappings from Informatica, DataStage, Talend, Airflow, Glue, ADF.</td>
+            <td>Pipeline lineage.</td>
+            <td>Tool APIs vary and may not expose all expressions cleanly.</td>
+          </tr>
+          <tr>
+            <td>BI scanning</td>
+            <td>Semantic models, calculated fields, dashboards, report dependencies.</td>
+            <td>Reconciling assistant answers with existing reports.</td>
+            <td>Report calculations may duplicate or override warehouse metrics.</td>
+          </tr>
+          <tr>
+            <td>Manual curation</td>
+            <td>Business explanations, source ownership, transformation notes.</td>
+            <td>Client workshop outputs and critical metrics.</td>
+            <td>Requires governance discipline and review.</td>
+          </tr>
+        </table>
+        <h3>Lineage Implementation Steps</h3>
+        <ol>
+          <li>Identify critical metrics and columns requiring lineage.</li>
+          <li>Capture source-to-target mappings from ETL, SQL, and BI artifacts.</li>
+          <li>Normalize lineage into a standard table model.</li>
+          <li>Attach plain-language transformation descriptions.</li>
+          <li>Map lineage records to metric and dimension registry entries.</li>
+          <li>Review lineage with data owners and certify.</li>
+          <li>Expose lineage through the assistant as a metadata-only answer path.</li>
+          <li>Monitor failed lineage questions and add missing lineage records.</li>
+        </ol>
+      </section>
+
+      <section id="join-catalog">
+        <h2>14. Join Path Catalog</h2>
+        <p>
+          The join path catalog prevents unsafe joins. The assistant should never infer joins just because column names
+          look similar. It should use certified join paths only.
+        </p>
+        <h3>Join Path Fields</h3>
+        <table>
+          <tr><th>Field</th><th>Description</th><th>Example</th></tr>
+          <tr><td><code>join_path_id</code></td><td>Stable join ID.</td><td>join.deposit_balance_account</td></tr>
+          <tr><td><code>from_table</code></td><td>Left/source table.</td><td>fact_deposit_balance_daily</td></tr>
+          <tr><td><code>from_column</code></td><td>Join key.</td><td>account_id</td></tr>
+          <tr><td><code>to_table</code></td><td>Right/target table.</td><td>dim_account</td></tr>
+          <tr><td><code>to_column</code></td><td>Join key.</td><td>account_id</td></tr>
+          <tr><td><code>join_type</code></td><td>INNER, LEFT, SEMI.</td><td>INNER</td></tr>
+          <tr><td><code>relationship_type</code></td><td>many-to-one, one-to-many, many-to-many.</td><td>many-to-one</td></tr>
+          <tr><td><code>cardinality_rule</code></td><td>Expected uniqueness rule.</td><td>dim_account.account_id is unique.</td></tr>
+          <tr><td><code>certified_flag</code></td><td>Assistant-visible flag.</td><td>true</td></tr>
+        </table>
+        <div class="warning">
+          Many-to-many joins should require special certification. They can inflate measures and create misleading
+          analytical answers.
+        </div>
+      </section>
+
+      <section id="semantic-layer">
+        <h2>15. Semantic Layer</h2>
+        <p>
+          The semantic layer maps user language to governed assets. It should support synonyms, ambiguity detection,
+          domain context, and clarification options.
+        </p>
+        <h3>Semantic Assets</h3>
+        <table>
+          <tr><th>Asset</th><th>Example</th><th>Expected Behavior</th></tr>
+          <tr><td>Synonym</td><td>"ledger balance" -> Average Deposit Ledger Balance</td><td>Resolve exact metric.</td></tr>
+          <tr><td>Ambiguous synonym</td><td>"segment" -> Customer Segment, Product Segment</td><td>Ask clarification.</td></tr>
+          <tr><td>Aggregation signal</td><td>"average", "total", "rate"</td><td>Must match metric aggregation type.</td></tr>
+          <tr><td>Domain hint</td><td>"loan", "deposit", "risk"</td><td>Rank assets in the correct subject area.</td></tr>
+          <tr><td>Forbidden mapping</td><td>"customer name" -> restricted</td><td>Block SQL and offer safe alternatives.</td></tr>
+        </table>
+        <h3>Clarification Design</h3>
+        <p>
+          Clarification should feel guided, not like an error. The assistant should tell the user what it understood,
+          what is missing, and which certified choices are available.
+        </p>
+        <pre>Example:
+User: Give me balance by segment.
+
+Assistant:
+I found more than one governed meaning.
+
+Metric options:
+1. Average Deposit Ledger Balance
+2. Average Deposit Collected Balance
+3. Average Loan Outstanding Balance
+
+Grouping options:
+1. Customer Segment
+2. Product Segment</pre>
+      </section>
+
+      <section id="governance">
+        <h2>16. Governance Controls</h2>
+        <p>
+          Governance controls ensure the assistant is safe, explainable, and auditable.
+        </p>
+        <h3>Controls to Implement</h3>
+        <table>
+          <tr><th>Control</th><th>Implementation</th><th>Failure Behavior</th></tr>
+          <tr>
+            <td>Certified asset only</td>
+            <td>SQL generator accepts only certified metrics, dimensions, tables, joins.</td>
+            <td>Ask clarification or reject request.</td>
+          </tr>
+          <tr>
+            <td>SQL AST validation</td>
+            <td>Parse generated SQL and verify every table/column reference against approved plan.</td>
+            <td>Reject SQL before execution.</td>
+          </tr>
+          <tr>
+            <td>Restricted column blocking</td>
+            <td>Check PII and restricted flags before SQL generation and after SQL parsing.</td>
+            <td>Block and offer safe dimensions.</td>
+          </tr>
+          <tr>
+            <td>Role-based visibility</td>
+            <td>Use access policy metadata for SQL visibility, result visibility, export permissions.</td>
+            <td>Mask, hide, or reject.</td>
+          </tr>
+          <tr>
+            <td>Audit packet</td>
+            <td>Store resolved metric, dimensions, SQL, lineage, source citations, validation status.</td>
+            <td>Do not show answer without audit evidence.</td>
+          </tr>
+        </table>
+      </section>
+
+      <section id="quality">
+        <h2>17. Data Quality</h2>
+        <p>
+          Data quality metadata allows the assistant to warn users when an answer is based on stale, incomplete, or
+          low-quality data.
+        </p>
+        <h3>Recommended Quality Rule Fields</h3>
+        <table>
+          <tr><th>Field</th><th>Description</th></tr>
+          <tr><td><code>rule_id</code></td><td>Stable quality rule ID.</td></tr>
+          <tr><td><code>asset_type</code></td><td>Table, column, metric, pipeline.</td></tr>
+          <tr><td><code>asset_name</code></td><td>Asset being checked.</td></tr>
+          <tr><td><code>rule_type</code></td><td>Completeness, freshness, validity, uniqueness, reconciliation.</td></tr>
+          <tr><td><code>rule_sql</code></td><td>Executable quality check SQL.</td></tr>
+          <tr><td><code>threshold</code></td><td>Pass/fail threshold.</td></tr>
+          <tr><td><code>last_run_status</code></td><td>Passed, warning, failed, not run.</td></tr>
+          <tr><td><code>last_run_time</code></td><td>Timestamp of latest result.</td></tr>
+          <tr><td><code>severity</code></td><td>Low, medium, high, critical.</td></tr>
+        </table>
+        <h3>Quality Rules to Start With</h3>
+        <ul>
+          <li>Freshness: table refreshed within expected SLA.</li>
+          <li>Completeness: required keys and measures are not null.</li>
+          <li>Uniqueness: dimension keys are unique where required.</li>
+          <li>Referential integrity: fact keys match dimension keys.</li>
+          <li>Reconciliation: certified metrics match source reports within tolerance.</li>
+          <li>Distribution drift: values are within expected ranges.</li>
+        </ul>
+      </section>
+
+      <section id="security">
+        <h2>18. Security and Privacy</h2>
+        <p>
+          Security metadata must be available before the assistant can be trusted with enterprise data.
+        </p>
+        <h3>Required Classifications</h3>
+        <table>
+          <tr><th>Classification</th><th>Examples</th><th>Assistant Behavior</th></tr>
+          <tr><td>Public/internal</td><td>Branch name, product segment.</td><td>Allowed if certified.</td></tr>
+          <tr><td>Confidential</td><td>Profitability, risk exposure.</td><td>Allowed only for approved roles.</td></tr>
+          <tr><td>PII</td><td>Customer name, address, email.</td><td>Block or mask unless role permits.</td></tr>
+          <tr><td>Financial account data</td><td>Account number, loan number.</td><td>Usually blocked or tokenized.</td></tr>
+          <tr><td>Regulatory sensitive</td><td>Credit decision, risk model output.</td><td>Restricted and audited.</td></tr>
+        </table>
+        <h3>Policy Fields</h3>
+        <ul>
+          <li><code>role_name</code>: business_user, analyst, technical_user, admin.</li>
+          <li><code>asset_type</code>: table, column, metric, dimension, feature.</li>
+          <li><code>asset_name</code>: governed ID or physical asset.</li>
+          <li><code>permission</code>: allowed, masked, restricted, hidden.</li>
+          <li><code>masking_rule</code>: hash, redact, aggregate-only, threshold suppression.</li>
+          <li><code>approval_required_flag</code>: whether special approval is needed.</li>
+        </ul>
+      </section>
+
+      <section id="ingestion">
+        <h2>19. Metadata Ingestion</h2>
+        <p>
+          Metadata ingestion should be repeatable. Avoid one-time manual loading unless it is clearly marked as a
+          temporary bootstrap step.
+        </p>
+        <h3>Recommended Pipeline</h3>
+        <ol>
+          <li>Extract technical metadata from databases, catalogs, ETL tools, and BI tools.</li>
+          <li>Load raw extracts into a metadata landing zone.</li>
+          <li>Normalize source-specific fields into the standard metadata model.</li>
+          <li>Run validation checks for missing owners, missing definitions, duplicate IDs, and invalid mappings.</li>
+          <li>Stage records for steward review.</li>
+          <li>Promote only approved records into certified metadata tables.</li>
+          <li>Refresh the search/vector index used by the assistant.</li>
+          <li>Create an audit record for every metadata change.</li>
+        </ol>
+        <h3>Excel Bootstrap Approach</h3>
+        <p>
+          If the client only has Excel data dictionaries, use them as an intake source, not the final system of record.
+        </p>
+        <table>
+          <tr><th>Excel Sheet</th><th>Map To</th><th>Validation</th></tr>
+          <tr><td>Tables</td><td><code>metadata_table</code></td><td>Table exists in client DB, grain is populated.</td></tr>
+          <tr><td>Columns</td><td><code>metadata_column</code></td><td>Column exists, data type matches, classification populated.</td></tr>
+          <tr><td>Metrics</td><td><code>metadata_metric</code></td><td>Formula parses, columns exist, owner approved.</td></tr>
+          <tr><td>Dimensions</td><td><code>metadata_dimension</code></td><td>Column exists, not restricted unless policy allows.</td></tr>
+          <tr><td>Lineage</td><td><code>metadata_lineage</code></td><td>Target exists, source and transformation documented.</td></tr>
+          <tr><td>Synonyms</td><td><code>metadata_synonym</code></td><td>Target asset exists, ambiguity handled.</td></tr>
+        </table>
+      </section>
+
+      <section id="curation">
+        <h2>20. Curation Workflow</h2>
+        <p>
+          Curation is how metadata becomes trusted. The workflow should be explicit and auditable.
+        </p>
+        <h3>Recommended States</h3>
+        <table>
+          <tr><th>State</th><th>Meaning</th><th>Assistant Visibility</th></tr>
+          <tr><td>Draft</td><td>Created but not reviewed.</td><td>Hidden.</td></tr>
+          <tr><td>In Review</td><td>Pending steward/domain review.</td><td>Hidden or admin only.</td></tr>
+          <tr><td>Certified</td><td>Approved for assistant use.</td><td>Visible.</td></tr>
+          <tr><td>Deprecated</td><td>Still exists but should not be used for new queries.</td><td>Hidden or warning.</td></tr>
+          <tr><td>Rejected</td><td>Invalid or duplicate.</td><td>Hidden.</td></tr>
+        </table>
+        <h3>Approval Responsibilities</h3>
+        <ul>
+          <li>Business owner approves definition and usage.</li>
+          <li>Data owner approves source and lineage.</li>
+          <li>Data engineer approves physical mappings and joins.</li>
+          <li>Security owner approves classification and access policy.</li>
+          <li>AI/product owner approves assistant behavior and test results.</li>
+        </ul>
+      </section>
+
+      <section id="assistant-integration">
+        <h2>21. AI Assistant Integration</h2>
+        <p>
+          The assistant should use metadata through controlled services, not direct ad hoc table scans of the catalog.
+        </p>
+        <h3>Runtime Flow</h3>
+        <ol>
+          <li>User asks a question.</li>
+          <li>Assistant classifies intent: definition, metadata, lineage, analytical, chart, clarification, unsupported.</li>
+          <li>Assistant retrieves relevant metadata context from search index.</li>
+          <li>Semantic resolver maps user terms to certified metrics and dimensions.</li>
+          <li>If ambiguous, assistant asks the user to choose from certified options.</li>
+          <li>If analytical, SQL generator builds SQL from metric, dimensions, filters, and join catalog.</li>
+          <li>SQL validator parses the generated SQL and rejects non-approved tables or columns.</li>
+          <li>Query executor runs read-only SQL with limits and role controls.</li>
+          <li>Answer generator summarizes result and attaches citations, SQL, chart, and governance audit.</li>
+          <li>Feedback and failed-resolution events feed the metadata improvement backlog.</li>
+        </ol>
+        <h3>Assistant Must Never</h3>
+        <ul>
+          <li>Invent a metric formula that is not in the certified registry.</li>
+          <li>Join tables using guessed key names.</li>
+          <li>Use restricted columns unless policy explicitly allows it.</li>
+          <li>Answer ambiguous analytical questions without clarification.</li>
+          <li>Hide SQL, lineage, or source evidence from users who are allowed to see it.</li>
+        </ul>
+      </section>
+
+      <section id="testing">
+        <h2>22. Testing and Certification</h2>
+        <p>
+          Build a golden-question suite before go-live. Every certified metric and key dimension should have test prompts.
+        </p>
+        <h3>Test Types</h3>
+        <table>
+          <tr><th>Test Type</th><th>Example</th><th>Pass Criteria</th></tr>
+          <tr><td>Definition</td><td>What does average collected balance mean?</td><td>No SQL, glossary answer, citation present.</td></tr>
+          <tr><td>Analytical</td><td>Show average deposit ledger balance by customer segment.</td><td>Correct metric, dimension, SQL, result.</td></tr>
+          <tr><td>Chart</td><td>Plot loan utilization by month.</td><td>Correct x-axis, y-axis, chart type.</td></tr>
+          <tr><td>Clarification</td><td>Give balance by segment.</td><td>Asks for metric and dimension choice.</td></tr>
+          <tr><td>Governance</td><td>List customer names with balance.</td><td>Blocks restricted column.</td></tr>
+          <tr><td>Lineage</td><td>Where does ledger balance come from?</td><td>Returns source system, transformation, owner.</td></tr>
+          <tr><td>Regression</td><td>Same question repeated.</td><td>Consistent result and cache behavior.</td></tr>
+        </table>
+        <h3>Certification Exit Criteria</h3>
+        <ul>
+          <li>All certified metrics reconcile to trusted reports or SQL.</li>
+          <li>All dimensions have approved table and column mappings.</li>
+          <li>All joins used by certified metrics are documented and approved.</li>
+          <li>All restricted columns are blocked or masked according to policy.</li>
+          <li>Golden-question pass rate meets agreed threshold, usually 95% or higher.</li>
+          <li>Failed questions have backlog items or explicit out-of-scope decisions.</li>
+        </ul>
+      </section>
+
+      <section id="operating-model">
+        <h2>23. Operating Model</h2>
+        <h3>Recommended Roles</h3>
+        <table>
+          <tr><th>Role</th><th>Responsibilities</th></tr>
+          <tr><td>Business domain owner</td><td>Owns definitions, priorities, and certification decisions.</td></tr>
+          <tr><td>Data steward</td><td>Curates glossary, metrics, dimensions, synonyms, and quality rules.</td></tr>
+          <tr><td>Data engineer</td><td>Validates tables, columns, joins, lineage extraction, and SQL performance.</td></tr>
+          <tr><td>Data governance lead</td><td>Defines policies, approvals, lifecycle, and audit expectations.</td></tr>
+          <tr><td>Security/privacy lead</td><td>Approves classification, masking, and access policies.</td></tr>
+          <tr><td>AI engineer</td><td>Integrates metadata with retrieval, semantic resolution, SQL generation, and evaluation.</td></tr>
+          <tr><td>Product owner</td><td>Manages roadmap, feedback, adoption, and user communication.</td></tr>
+        </table>
+        <h3>Release Cadence</h3>
+        <ul>
+          <li>Weekly metadata curation review during implementation.</li>
+          <li>Biweekly certified metadata release after go-live.</li>
+          <li>Monthly governance review of unresolved prompts, failed SQL, and user feedback.</li>
+          <li>Quarterly certification review for critical metrics and lineage.</li>
+        </ul>
+      </section>
+
+      <section id="templates">
+        <h2>24. Templates</h2>
+        <h3>Metric Intake Template</h3>
+        <table>
+          <tr><th>Field</th><th>Example</th></tr>
+          <tr><td>Metric Name</td><td>Average Deposit Ledger Balance</td></tr>
+          <tr><td>Definition</td><td>Average daily posted commercial deposit balance.</td></tr>
+          <tr><td>Formula</td><td>AVG(fact_deposit_balance_daily.ledger_balance)</td></tr>
+          <tr><td>Base Table</td><td>fact_deposit_balance_daily</td></tr>
+          <tr><td>Required Columns</td><td>ledger_balance, as_of_date, account_id</td></tr>
+          <tr><td>Allowed Dimensions</td><td>customer_segment, product_segment, market, year_month</td></tr>
+          <tr><td>Owner</td><td>Deposit Analytics</td></tr>
+          <tr><td>Reconciliation Source</td><td>Commercial Deposit Balance Dashboard</td></tr>
+        </table>
+        <h3>Lineage Intake Template</h3>
+        <table>
+          <tr><th>Field</th><th>Example</th></tr>
+          <tr><td>Target Asset</td><td>fact_deposit_balance_daily.ledger_balance</td></tr>
+          <tr><td>Source System</td><td>Core Deposit Platform</td></tr>
+          <tr><td>Source Object</td><td>Daily Account Balance Snapshot</td></tr>
+          <tr><td>Source Field</td><td>posted_balance</td></tr>
+          <tr><td>Transformation</td><td>End-of-day posted balances loaded after nightly core processing.</td></tr>
+          <tr><td>Pipeline</td><td>deposit_balance_daily_load</td></tr>
+          <tr><td>Refresh Frequency</td><td>Daily</td></tr>
+          <tr><td>Owner</td><td>Deposit Data Governance</td></tr>
+        </table>
+        <h3>Synonym Intake Template</h3>
+        <table>
+          <tr><th>Phrase</th><th>Target Type</th><th>Target ID</th><th>Confidence</th><th>Notes</th></tr>
+          <tr><td>ledger balance</td><td>metric</td><td>metric.average_deposit_ledger_balance</td><td>0.95</td><td>Exact deposit metric.</td></tr>
+          <tr><td>segment</td><td>dimension</td><td>dimension.customer_segment</td><td>0.80</td><td>Ambiguous with product segment.</td></tr>
+          <tr><td>segment</td><td>dimension</td><td>dimension.product_segment</td><td>0.80</td><td>Ambiguous with customer segment.</td></tr>
+        </table>
+      </section>
+
+      <section id="checklist">
+        <h2>25. Readiness Checklist</h2>
+        <h3>Before Connecting the Assistant to Client Data</h3>
+        <ul>
+          <li><span class="badge">Metadata</span> Tables and columns harvested from client DB.</li>
+          <li><span class="badge">Glossary</span> Business definitions reviewed by owners.</li>
+          <li><span class="badge">Metrics</span> Priority metrics certified with formulas and reconciliation evidence.</li>
+          <li><span class="badge">Dimensions</span> Grouping/filter attributes certified and classified.</li>
+          <li><span class="badge">Joins</span> Approved join paths documented with cardinality.</li>
+          <li><span class="badge">Lineage</span> Critical metric and column lineage captured and owner-approved.</li>
+          <li><span class="badge">Security</span> PII/restricted columns classified and access policies loaded.</li>
+          <li><span class="badge">Quality</span> Freshness, completeness, reconciliation, and uniqueness rules implemented.</li>
+          <li><span class="badge">Semantic</span> Synonyms and ambiguity rules loaded.</li>
+          <li><span class="badge">Testing</span> Golden-question suite passed.</li>
+          <li><span class="badge">Operations</span> Feedback, issue triage, and curation workflow live.</li>
+        </ul>
+        <div class="callout">
+          The best production pattern is to launch domain by domain. Certify a small but high-quality metadata set,
+          connect it to the assistant, monitor real questions, then expand coverage based on demand and risk.
+        </div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

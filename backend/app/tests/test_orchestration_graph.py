@@ -723,6 +723,41 @@ def test_chat_join_path_question_uses_certified_join_catalog() -> None:
     assert "dim_customer.customer_id" in payload["answer"]
 
 
+def test_chat_lineage_question_returns_structured_lineage_details() -> None:
+    payload = client.post(
+        "/chat/message",
+        json={
+            "message": "Explain the source system, transformation, and owner for ledger balance lineage.",
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+
+    assert payload["status"] == OrchestrationStatus.ANSWERED
+    assert payload["intent"] == "lineage_question"
+    assert payload["generated_sql"] is None
+    assert "Source system: Core Deposit Platform" in payload["answer"]
+    assert "Transformation: End-of-day posted balances" in payload["answer"]
+    assert "Data owner: Deposit Data Governance" in payload["answer"]
+
+
+def test_chat_transformation_question_returns_lineage_not_definition() -> None:
+    payload = client.post(
+        "/chat/message",
+        json={
+            "message": "How is relationship profit transformed into the reporting table?",
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+
+    assert payload["status"] == OrchestrationStatus.ANSWERED
+    assert payload["intent"] == "lineage_question"
+    assert payload["generated_sql"] is None
+    assert "Source system: Finance Allocation Engine" in payload["answer"]
+    assert "Relationship profit is calculated from net interest income" in payload["answer"]
+
+
 def test_chat_certified_deposit_metrics_lists_catalog_metrics() -> None:
     payload = client.post(
         "/chat/message",
@@ -754,6 +789,24 @@ def test_chat_product_segment_does_not_add_product_type_grouping() -> None:
     assert payload["status"] == OrchestrationStatus.ANSWERED
     assert payload["result_table"]["columns"] == ["product_segment", "market", "average_deposit_ledger_balance"]
     assert "product_type" not in payload["generated_sql"]
+
+
+def test_chat_average_loan_outstanding_uses_average_metric_not_total() -> None:
+    assistant_response_cache.clear()
+
+    payload = client.post(
+        "/chat/message",
+        json={
+            "message": "Show average loan outstanding balance by product segment.",
+            "user_role": "technical_user",
+            "technical_mode": True,
+        },
+    ).json()
+
+    assert payload["status"] == OrchestrationStatus.ANSWERED
+    assert payload["result_table"]["columns"] == ["product_segment", "average_loan_outstanding_balance"]
+    assert "AVG(flbm.outstanding_balance)" in payload["generated_sql"]
+    assert "SUM(flbm.outstanding_balance) AS total_loan_outstanding_balance" not in payload["generated_sql"]
 
 
 def test_pending_clarification_choice_bypasses_llm_and_uses_prior_context(monkeypatch) -> None:

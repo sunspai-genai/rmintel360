@@ -285,6 +285,10 @@ class SemanticResolver:
                 ],
             }
 
+        exact_metric = self._exact_metric_match(message)
+        if exact_metric:
+            return {"metric": self._metric_object(exact_metric), "ambiguities": []}
+
         phrase_groups = self._matched_candidate_groups(message=message, target_type="metric")
         if phrase_groups:
             if len(phrase_groups) > 1:
@@ -297,11 +301,25 @@ class SemanticResolver:
                             question="I found multiple metric phrases. Which governed metric should I use?",
                             candidates=[candidate for group in phrase_groups for candidate in group["candidates"]],
                         )
-                    ],
-                }
+                ],
+            }
             group = phrase_groups[0]
             if len(group["candidates"]) == 1:
-                return {"metric": self._candidate_to_metric(group["candidates"][0]), "ambiguities": []}
+                metric = self._candidate_to_metric(group["candidates"][0])
+                replacement_metric = self._single_aggregation_compatible_metric(
+                    message=message,
+                    metric=metric,
+                )
+                if replacement_metric:
+                    return {"metric": self._metric_object(replacement_metric), "ambiguities": []}
+                aggregation_ambiguity = self._aggregation_mismatch_ambiguity(
+                    message=message,
+                    metric=metric,
+                    retrieval_context=retrieval_context,
+                )
+                if aggregation_ambiguity:
+                    return {"metric": None, "ambiguities": [aggregation_ambiguity]}
+                return {"metric": metric, "ambiguities": []}
             return {
                 "metric": None,
                 "ambiguities": [
@@ -320,6 +338,19 @@ class SemanticResolver:
             second_score = metric_hints[1]["score"] if len(metric_hints) > 1 else 0.0
             if top["score"] >= 0.62 and (top["score"] - second_score >= 0.10 or len(metric_hints) == 1):
                 metric = catalog_service.get_metric(top["source_id"])
+                replacement_metric = self._single_aggregation_compatible_metric(
+                    message=message,
+                    metric=self._metric_object(metric),
+                )
+                if replacement_metric:
+                    return {"metric": self._metric_object(replacement_metric), "ambiguities": []}
+                aggregation_ambiguity = self._aggregation_mismatch_ambiguity(
+                    message=message,
+                    metric=self._metric_object(metric),
+                    retrieval_context=retrieval_context,
+                )
+                if aggregation_ambiguity:
+                    return {"metric": None, "ambiguities": [aggregation_ambiguity]}
                 return {"metric": self._metric_object(metric), "ambiguities": []}
 
         return {"metric": None, "ambiguities": []}
@@ -375,7 +406,11 @@ class SemanticResolver:
 
     def _matched_candidate_groups(self, message: str, target_type: str) -> list[dict[str, Any]]:
         normalized = self._normalize(message)
-        synonyms = catalog_service.list_synonyms(target_type=target_type)
+        synonyms = sorted(
+            catalog_service.list_synonyms(target_type=target_type),
+            key=lambda item: len(self._normalize(item["phrase"])),
+            reverse=True,
+        )
         chosen_phrases: list[str] = []
         groups: list[dict[str, Any]] = []
 
@@ -398,6 +433,140 @@ class SemanticResolver:
                 groups.append({"phrase": phrase, "candidates": candidates})
 
         return groups
+
+    def _exact_metric_match(self, message: str) -> dict[str, Any] | None:
+        normalized = f" {self._normalize(message)} "
+        matches = []
+        for metric in catalog_service.list_metrics(certified=True):
+            metric_name = self._normalize(metric["metric_name"])
+            metric_id_name = self._normalize(metric["metric_id"].split(".")[-1])
+            if f" {metric_name} " in normalized or f" {metric_id_name} " in normalized:
+                matches.append(metric)
+        if not matches:
+            return None
+        matches.sort(key=lambda item: len(self._normalize(item["metric_name"])), reverse=True)
+        return matches[0]
+
+    def _aggregation_mismatch_ambiguity(
+        self,
+        message: str,
+        metric: dict[str, Any] | None,
+        retrieval_context: list[dict[str, Any]],
+    ) -> dict[str, Any] | None:
+        if not metric:
+            return None
+        requested_aggregation = self._requested_aggregation(message)
+        if not requested_aggregation:
+            return None
+        metric_aggregation = self._metric_aggregation(metric)
+        if metric_aggregation == requested_aggregation:
+            return None
+
+        compatible_options = self._aggregation_compatible_metric_options(
+            message=message,
+            requested_aggregation=requested_aggregation,
+        )
+
+        return {
+            "kind": "metric",
+            "phrase": message,
+            "question": (
+                f"The request asks for {self._aggregation_article(requested_aggregation)} {requested_aggregation} metric, "
+                "but the best synonym match was "
+                f"`{metric['business_name']}` with {metric_aggregation} aggregation. Which certified metric should I use?"
+            ),
+            "options": compatible_options or self._top_metric_options(retrieval_context),
+        }
+
+    def _single_aggregation_compatible_metric(
+        self,
+        message: str,
+        metric: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        if not metric:
+            return None
+        requested_aggregation = self._requested_aggregation(message)
+        if not requested_aggregation or self._metric_aggregation(metric) == requested_aggregation:
+            return None
+        compatible_options = self._aggregation_compatible_metric_options(
+            message=message,
+            requested_aggregation=requested_aggregation,
+        )
+        if len(compatible_options) != 1:
+            return None
+        return catalog_service.get_metric(compatible_options[0]["id"])
+
+    def _requested_aggregation(self, message: str) -> str | None:
+        normalized = self._normalize(message)
+        if (
+            self._phrase_in_message("average", normalized)
+            or self._phrase_in_message("avg", normalized)
+            or self._phrase_in_message("mean", normalized)
+        ):
+            return "average"
+        if self._phrase_in_message("total", normalized) or self._phrase_in_message("sum", normalized):
+            return "total"
+        if self._phrase_in_message("count", normalized) or self._phrase_in_message("number of", normalized):
+            return "count"
+        if (
+            self._phrase_in_message("rate", normalized)
+            or self._phrase_in_message("ratio", normalized)
+            or self._phrase_in_message("percent", normalized)
+            or self._phrase_in_message("percentage", normalized)
+            or self._phrase_in_message("utilization", normalized)
+        ):
+            return "rate"
+        return None
+
+    def _metric_aggregation(self, metric: dict[str, Any]) -> str:
+        aggregation_type = str(metric.get("aggregation_type") or "").upper()
+        metric_name = self._normalize(metric.get("business_name") or "")
+        if aggregation_type == "AVG" or self._phrase_in_message("average", metric_name):
+            return "average"
+        if aggregation_type == "SUM" or self._phrase_in_message("total", metric_name):
+            return "total"
+        if aggregation_type == "COUNT" or self._phrase_in_message("count", metric_name):
+            return "count"
+        if (
+            "RATIO" in aggregation_type
+            or self._phrase_in_message("rate", metric_name)
+            or self._phrase_in_message("ratio", metric_name)
+        ):
+            return "rate"
+        return aggregation_type.lower() or "unknown"
+
+    def _aggregation_article(self, aggregation: str) -> str:
+        return "an" if aggregation[:1].lower() in {"a", "e", "i", "o", "u"} else "a"
+
+    def _aggregation_compatible_metric_options(self, message: str, requested_aggregation: str) -> list[dict[str, Any]]:
+        query = self._metric_search_query(message)
+        search_results = catalog_service.search_metadata(query, document_type="metric", limit=10, min_score=0.05)
+        options = []
+        seen = set()
+        for item in search_results:
+            metric = catalog_service.get_metric(item["source_id"])
+            metric_object = self._metric_object(metric)
+            if not metric or not metric["certified_flag"] or not metric_object or metric["metric_id"] in seen:
+                continue
+            if self._metric_aggregation(metric_object) != requested_aggregation:
+                continue
+            seen.add(metric["metric_id"])
+            options.append(
+                {
+                    "id": metric["metric_id"],
+                    "label": metric["metric_name"],
+                    "target_type": "metric",
+                    "definition": metric["description"],
+                    "table": metric["base_table"],
+                    "column": self._first_measure_column(self._split_columns(metric["required_columns"])),
+                    "required_columns": self._split_columns(metric["required_columns"]),
+                    "calculation": metric["calculation_sql"],
+                    "subject_area": metric["subject_area"],
+                    "confidence": item["score"],
+                    "certified": metric["certified_flag"],
+                }
+            )
+        return options[:5]
 
     def _build_query_plan(
         self,

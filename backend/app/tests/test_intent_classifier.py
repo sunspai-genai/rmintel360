@@ -32,6 +32,14 @@ def test_lineage_question_routes_to_information_flow() -> None:
     assert result["retrieval_context"][0]["document_type"] == "lineage"
 
 
+def test_transformation_question_routes_to_lineage_flow() -> None:
+    result = intent_classifier.classify("How is relationship profit transformed into the reporting table?").to_dict()
+
+    assert result["intent"] == IntentType.LINEAGE_QUESTION
+    assert result["requires_sql"] is False
+    assert result["route"] == "information_flow"
+
+
 def test_analytical_question_requires_sql() -> None:
     result = intent_classifier.classify("Show average balance by segment").to_dict()
 
@@ -79,4 +87,3 @@ def test_intent_api_returns_classification_contract() -> None:
     assert payload["requires_sql"] is True
     assert payload["route"] == "governed_analytics_flow"
     assert "metric_hints" in payload["extracted_entities"]
-

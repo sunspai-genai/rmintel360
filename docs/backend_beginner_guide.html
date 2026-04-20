@@ -1,711 +1,731 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>CFG Enterprise Data Bot Backend Beginner Guide</title>
-    <style>
-      :root {
-        --page: #f4f7fb;
-        --surface: #ffffff;
-        --ink: #122234;
-        --muted: #637386;
-        --line: #d8e2ea;
-        --blue: #1b5f9e;
-        --green: #0b7d68;
-        --blue-soft: #e8f1fa;
-        --green-soft: #e7f5f1;
-        --warning-soft: #fff8e8;
-        --code-bg: #10263a;
-      }
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CFG Enterprise Data Bot - Beginner Codebase Guide</title>
+  <style>
+    :root {
+      --blue: #0f4f8f;
+      --green: #1f7a4d;
+      --ink: #142033;
+      --muted: #5b677a;
+      --line: #d9e3ef;
+      --soft-blue: #eef6ff;
+      --soft-green: #eefaf3;
+      --panel: #ffffff;
+      --bg: #f6f9fc;
+      --code: #101828;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.55;
+    }
+    header {
+      background: linear-gradient(120deg, var(--blue), var(--green));
+      color: white;
+      padding: 34px 42px;
+    }
+    header h1 {
+      margin: 0 0 8px;
+      font-size: 32px;
+      letter-spacing: 0;
+    }
+    header p {
+      max-width: 980px;
+      margin: 0;
+      font-size: 16px;
+      opacity: 0.94;
+    }
+    main {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 24px;
+      padding: 24px;
+      max-width: 1440px;
+      margin: 0 auto;
+    }
+    nav {
+      position: sticky;
+      top: 16px;
+      align-self: start;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+    }
+    nav h2 {
+      font-size: 14px;
+      margin: 0 0 12px;
+      text-transform: uppercase;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+    nav a {
+      display: block;
+      color: var(--ink);
+      text-decoration: none;
+      padding: 7px 0;
+      border-bottom: 1px solid #edf2f7;
+      font-size: 14px;
+    }
+    nav a:hover { color: var(--blue); }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 18px;
+    }
+    h2 {
+      margin: 0 0 12px;
+      color: var(--blue);
+      font-size: 24px;
+    }
+    h3 {
+      margin: 22px 0 8px;
+      color: var(--green);
+      font-size: 18px;
+    }
+    h4 {
+      margin: 18px 0 8px;
+      color: var(--ink);
+      font-size: 15px;
+    }
+    p { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 6px 0; }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      background: #edf2f7;
+      color: #111827;
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-size: 0.92em;
+    }
+    pre {
+      overflow-x: auto;
+      background: var(--code);
+      color: #e5edf8;
+      padding: 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 20px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 10px;
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      background: var(--soft-blue);
+      color: #0b3158;
+    }
+    .callout {
+      border-left: 4px solid var(--green);
+      background: var(--soft-green);
+      padding: 12px 14px;
+      border-radius: 6px;
+      margin: 14px 0;
+    }
+    .warning {
+      border-left-color: #b7791f;
+      background: #fff8e6;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfdff;
+    }
+    .card strong { color: var(--blue); }
+    .flow {
+      border: 1px solid var(--line);
+      background: #fbfdff;
+      border-radius: 8px;
+      padding: 14px;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      white-space: pre-wrap;
+    }
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--soft-blue);
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 700;
+      margin-right: 4px;
+    }
+    @media (max-width: 980px) {
+      main { grid-template-columns: 1fr; padding: 14px; }
+      nav { position: static; }
+      .grid { grid-template-columns: 1fr; }
+      header { padding: 28px 18px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CFG Enterprise Data Bot - Beginner Codebase Guide</h1>
+    <p>
+      A step-by-step guide to understand the current MVP codebase: FastAPI backend,
+      LangGraph orchestration, Bedrock/Titan LLM integration, governed metadata,
+      SQL generation, clarification handling, cache behavior, charts, feedback, and the frontend chat UI.
+    </p>
+  </header>
 
-      * {
-        box-sizing: border-box;
-      }
+  <main>
+    <nav>
+      <h2>Guide Sections</h2>
+      <a href="#purpose">1. Project Purpose</a>
+      <a href="#mental-model">2. Beginner Mental Model</a>
+      <a href="#structure">3. Folder Structure</a>
+      <a href="#runtime">4. Runtime Setup</a>
+      <a href="#end-to-end">5. End-to-End Chat Flow</a>
+      <a href="#llm">6. LLM and Bedrock Flow</a>
+      <a href="#governance">7. Governance Layer</a>
+      <a href="#clarification">8. Clarification Engine</a>
+      <a href="#cache">9. Cache and New Conversation</a>
+      <a href="#metadata">10. Metadata Catalog</a>
+      <a href="#sql">11. SQL Flow</a>
+      <a href="#answer-chart">12. Answers and Charts</a>
+      <a href="#frontend">13. Frontend Flow</a>
+      <a href="#modules">14. Module and Function Map</a>
+      <a href="#api">15. API Endpoints</a>
+      <a href="#tests">16. Tests</a>
+      <a href="#debug">17. Debugging Checklist</a>
+      <a href="#glossary">18. Glossary</a>
+    </nav>
 
-      body {
-        margin: 0;
-        background: var(--page);
-        color: var(--ink);
-        font-family:
-          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-          sans-serif;
-        letter-spacing: 0;
-      }
-
-      main {
-        width: min(1240px, calc(100vw - 32px));
-        margin: 0 auto;
-        padding: 28px 0 64px;
-      }
-
-      header,
-      section {
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: var(--surface);
-        box-shadow: 0 16px 44px rgba(30, 54, 78, 0.1);
-      }
-
-      header {
-        padding: 28px;
-      }
-
-      section {
-        margin-top: 18px;
-        padding: 22px 24px;
-      }
-
-      h1,
-      h2,
-      h3 {
-        margin: 0;
-        line-height: 1.15;
-      }
-
-      h1 {
-        font-size: 2.35rem;
-      }
-
-      h2 {
-        margin-bottom: 12px;
-        font-size: 1.45rem;
-      }
-
-      h3 {
-        margin-top: 20px;
-        margin-bottom: 8px;
-        font-size: 1.08rem;
-      }
-
-      p,
-      li {
-        line-height: 1.62;
-      }
-
-      p {
-        margin: 10px 0;
-      }
-
-      a {
-        color: var(--blue);
-      }
-
-      code,
-      pre {
-        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-      }
-
-      code {
-        padding: 1px 5px;
-        border: 1px solid #dce7ef;
-        border-radius: 6px;
-        background: #eef4f8;
-      }
-
-      pre {
-        overflow: auto;
-        padding: 14px;
-        border-radius: 8px;
-        background: var(--code-bg);
-        color: #eef7fb;
-        line-height: 1.5;
-      }
-
-      table {
-        width: 100%;
-        margin-top: 10px;
-        border-collapse: collapse;
-      }
-
-      th,
-      td {
-        padding: 10px 12px;
-        border-bottom: 1px solid var(--line);
-        text-align: left;
-        vertical-align: top;
-      }
-
-      th {
-        background: #eef4f8;
-        color: #40596f;
-        font-size: 0.78rem;
-        text-transform: uppercase;
-      }
-
-      .tag {
-        display: inline-block;
-        margin: 0 6px 10px 0;
-        padding: 4px 8px;
-        border-radius: 999px;
-        background: var(--blue-soft);
-        color: var(--blue);
-        font-size: 0.78rem;
-        font-weight: 800;
-      }
-
-      .tag.green {
-        background: var(--green-soft);
-        color: var(--green);
-      }
-
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 14px;
-      }
-
-      .card {
-        padding: 14px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: #fbfdff;
-      }
-
-      .note {
-        padding: 12px 14px;
-        border-left: 4px solid var(--green);
-        border-radius: 8px;
-        background: var(--green-soft);
-      }
-
-      .warning {
-        padding: 12px 14px;
-        border-left: 4px solid #c58b2a;
-        border-radius: 8px;
-        background: var(--warning-soft);
-      }
-
-      .flow {
-        display: grid;
-        gap: 8px;
-      }
-
-      .step {
-        padding: 10px 12px;
-        border-left: 4px solid var(--blue);
-        border-radius: 8px;
-        background: var(--blue-soft);
-      }
-
-      .step.green {
-        border-left-color: var(--green);
-        background: var(--green-soft);
-      }
-
-      .small {
-        color: var(--muted);
-        font-size: 0.92rem;
-      }
-
-      @media (max-width: 860px) {
-        main {
-          width: calc(100vw - 20px);
-          padding-top: 12px;
-        }
-
-        .grid {
-          grid-template-columns: 1fr;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <main>
-      <header>
-        <span class="tag green">CFG Enterprise Data Bot</span>
-        <span class="tag">Beginner backend guide</span>
-        <h1>Backend Code Walkthrough</h1>
+    <div>
+      <section id="purpose">
+        <h2>1. Project Purpose</h2>
         <p>
-          This guide is for a beginner who wants to understand the backend code step by step.
-          It explains the project structure, how data moves through the application, and what the
-          important modules, classes, and functions take as input and return as output.
+          This MVP is a governed commercial banking analytics assistant. A user can ask plain English questions
+          such as <code>Plot loan utilization by month</code> or <code>What does average collected balance mean?</code>.
+          The bot decides whether the request needs metadata, SQL-backed analytics, a chart, or clarification.
         </p>
-        <p class="small">
-          Best way to use this guide: open it side-by-side with the code editor, start from
-          <code>backend/app/main.py</code>, then follow the reading path below.
-        </p>
-      </header>
+        <div class="callout">
+          The most important idea: the LLM can interpret user language, but the governance layer decides whether a metric,
+          dimension, table, column, and SQL query are allowed.
+        </div>
+        <p>The project supports:</p>
+        <ul>
+          <li>Business definition answers from governed metadata.</li>
+          <li>SQL generation from certified metrics and dimensions.</li>
+          <li>Simple chart generation from SQL results.</li>
+          <li>Source citations and governance audit details.</li>
+          <li>Clarification questions with selectable choices when a request is ambiguous.</li>
+          <li>Session-aware cache reset for New Conversation.</li>
+          <li>Feedback capture and quality monitoring.</li>
+        </ul>
+      </section>
 
       <section id="mental-model">
-        <h2>1. Simple Mental Model</h2>
-        <p>The backend is a FastAPI application. Think of it as a set of layers:</p>
-        <div class="flow">
-          <div class="step green">API layer receives HTTP requests from the frontend.</div>
-          <div class="step">Orchestration layer decides what type of question the user asked.</div>
-          <div class="step">Retrieval and catalog layers fetch governed metadata.</div>
-          <div class="step">LLM layer asks Bedrock Titan for structured decisions, or uses local fallback.</div>
-          <div class="step">Semantic layer resolves metrics, dimensions, joins, and filters.</div>
-          <div class="step">SQL layer generates and validates safe SQL.</div>
-          <div class="step">Execution layer runs validated SQL against DuckDB.</div>
-          <div class="step">Answer and chart layers create the final business response.</div>
-          <div class="step green">Conversation, audit, export, curation, and feedback layers persist supporting evidence.</div>
-        </div>
-      </section>
-
-      <section id="read-order">
-        <h2>2. Recommended Reading Order</h2>
-        <ol>
-          <li><code>backend/app/main.py</code>: learn how the app starts and which routers are registered.</li>
-          <li><code>backend/app/core/config.py</code>: learn where settings come from.</li>
-          <li><code>backend/app/db/connection.py</code>: learn how the app connects to DuckDB.</li>
-          <li><code>backend/app/api/chat.py</code>: learn the main chatbot endpoint.</li>
-          <li><code>backend/app/orchestration/llm_graph.py</code>: learn the main decision flow.</li>
-          <li><code>backend/app/retrieval/metadata.py</code> and <code>backend/app/catalog/service.py</code>: learn metadata retrieval.</li>
-          <li><code>backend/app/semantic/resolver.py</code>: learn how user language becomes governed metric/dimension IDs.</li>
-          <li><code>backend/app/sql/service.py</code>, <code>generator.py</code>, and <code>validator.py</code>: learn SQL generation and safety.</li>
-          <li><code>backend/app/execution/service.py</code>: learn how query results are returned.</li>
-          <li><code>backend/app/answer/service.py</code> and <code>backend/app/chart/service.py</code>: learn final response generation.</li>
-          <li>Then read governance, export, curation, feedback, and synthetic data modules.</li>
-        </ol>
-      </section>
-
-      <section id="folder-map">
-        <h2>3. Backend Folder Structure</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Folder</th>
-              <th>What it contains</th>
-              <th>Beginner explanation</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td><code>api/</code></td><td>FastAPI route files</td><td>Functions that receive HTTP requests and call backend services.</td></tr>
-            <tr><td><code>answer/</code></td><td>Answer generation service</td><td>Turns result tables into business-language summaries.</td></tr>
-            <tr><td><code>catalog/</code></td><td>Metadata read/search services</td><td>Reads metadata tables like metrics, dimensions, columns, lineage, and policies.</td></tr>
-            <tr><td><code>chart/</code></td><td>Chart generation service</td><td>Creates Plotly chart JSON for the frontend.</td></tr>
-            <tr><td><code>conversation/</code></td><td>Conversation persistence</td><td>Saves chat sessions and turns in DuckDB.</td></tr>
-            <tr><td><code>core/</code></td><td>Configuration</td><td>Loads paths, app name, and Bedrock settings.</td></tr>
-            <tr><td><code>curation/</code></td><td>Admin metadata updates</td><td>Lets admins add/update governed terms, metrics, dimensions, and synonyms.</td></tr>
-            <tr><td><code>db/</code></td><td>DuckDB connection helpers</td><td>Reusable functions for opening the database and reading rows.</td></tr>
-            <tr><td><code>execution/</code></td><td>Query execution</td><td>Runs validated SQL and returns rows.</td></tr>
-            <tr><td><code>exporting/</code></td><td>Exports</td><td>Creates HTML, CSV, and JSON snapshots of answers.</td></tr>
-            <tr><td><code>feedback/</code></td><td>User feedback</td><td>Stores thumbs up/down feedback and quality summaries.</td></tr>
-            <tr><td><code>governance/</code></td><td>Audit evidence</td><td>Builds governance reports for each response.</td></tr>
-            <tr><td><code>intent/</code></td><td>Local intent classifier</td><td>Fallback classifier used when Bedrock is not enabled.</td></tr>
-            <tr><td><code>llm/</code></td><td>Bedrock client</td><td>Calls AWS Bedrock Titan or falls back locally.</td></tr>
-            <tr><td><code>orchestration/</code></td><td>LangGraph flows</td><td>The brain of the app that routes a user question through the right steps.</td></tr>
-            <tr><td><code>retrieval/</code></td><td>Metadata retrieval</td><td>Fetches the context the LLM is allowed to use.</td></tr>
-            <tr><td><code>schemas/</code></td><td>Pydantic models</td><td>Input/output shapes for APIs.</td></tr>
-            <tr><td><code>semantic/</code></td><td>Semantic resolver</td><td>Maps natural language to governed metrics, dimensions, joins, and filters.</td></tr>
-            <tr><td><code>sql/</code></td><td>SQL generation and validation</td><td>Creates safe SQL and blocks bad references.</td></tr>
-            <tr><td><code>synthetic_data/</code></td><td>Database generation</td><td>Creates commercial banking sample data and metadata.</td></tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section id="main-flow">
-        <h2>4. Main Chat Flow, End to End</h2>
-        <p>Example user question:</p>
-        <pre><code>Show average deposit collected balance by customer segment.</code></pre>
-        <ol>
-          <li>Frontend sends the message to <code>POST /chat/message</code>.</li>
-          <li><code>api/chat.py</code> creates or reuses a conversation id.</li>
-          <li><code>llm_graph.py</code> loads recent conversation memory.</li>
-          <li><code>metadata_retriever.retrieve()</code> searches metadata for matching metrics, dimensions, columns, and lineage.</li>
-          <li><code>llm_client.invoke_json()</code> asks Bedrock Titan for a structured intent decision. If Bedrock is off, local fallback is used.</li>
-          <li><code>_normalize_decision()</code> and <code>_policy_for_decision()</code> make sure the decision is safe.</li>
-          <li><code>semantic_resolver.resolve()</code> resolves metric and dimensions.</li>
-          <li><code>governed_sql_generator.generate()</code> creates SQL.</li>
-          <li><code>governed_sql_validator.validate()</code> checks SQL safety and allowed columns.</li>
-          <li><code>governed_query_executor.execute_from_message()</code> runs the SQL.</li>
-          <li><code>governed_answer_generator.answer_from_execution()</code> summarizes results.</li>
-          <li><code>governance_audit_service.build_from_chat_response()</code> creates audit evidence.</li>
-          <li><code>conversation_store.record_turn()</code> saves the final turn and returns <code>turn_id</code>.</li>
-        </ol>
-      </section>
-
-      <section id="input-output-basics">
-        <h2>5. Input and Output Basics</h2>
+        <h2>2. Beginner Mental Model</h2>
+        <p>Think of the app as a team of small workers:</p>
         <div class="grid">
-          <div class="card">
-            <h3>What is a request?</h3>
-            <p>A request is data sent into the backend. Example: <code>ChatRequest</code> contains the user message, role, conversation id, and options like <code>execute_sql</code>.</p>
-          </div>
-          <div class="card">
-            <h3>What is a response?</h3>
-            <p>A response is data returned by the backend. Example: <code>ChatResponse</code> contains answer text, generated SQL, result table, chart spec, citations, audit report, and warnings.</p>
-          </div>
-          <div class="card">
-            <h3>What is a service?</h3>
-            <p>A service is a class that performs business logic. Example: <code>GovernedSqlService</code> coordinates semantic resolution and SQL generation.</p>
-          </div>
-          <div class="card">
-            <h3>What is a schema?</h3>
-            <p>A schema is a Pydantic model defining the shape of accepted input or returned output.</p>
-          </div>
+          <div class="card"><strong>Frontend</strong><br>Shows the chat UI, sends user messages to the backend, renders answers, tables, charts, SQL, citations, and feedback buttons.</div>
+          <div class="card"><strong>FastAPI</strong><br>Receives HTTP requests, routes them to services, and returns structured JSON responses.</div>
+          <div class="card"><strong>LangGraph Orchestrator</strong><br>Controls the conversation steps: memory, retrieval, interpretation, clarification, SQL, execution, answer, chart, cache.</div>
+          <div class="card"><strong>LLM Client</strong><br>Calls AWS Bedrock Titan when enabled; otherwise uses local deterministic fallback functions.</div>
+          <div class="card"><strong>Catalog and Metadata</strong><br>Stores governed tables, columns, metrics, dimensions, synonyms, lineage, and access policies.</div>
+          <div class="card"><strong>Governance</strong><br>Blocks unsafe SQL, restricted columns, unclear metrics, missing join paths, and hallucinated assets.</div>
         </div>
       </section>
 
-      <section id="startup-config-db">
-        <h2>6. Startup, Config, and Database Functions</h2>
+      <section id="structure">
+        <h2>3. Folder Structure</h2>
+        <pre><code>BankingProject/
+  backend/app/
+    api/                 FastAPI route files
+    answer/              Builds final business answer text
+    cache/               Redis/local cache logic
+    catalog/             Metadata catalog read service and search
+    chart/               Chart spec generation
+    conversation/        Conversation and turn persistence
+    core/                Settings and environment config
+    curation/            Admin curation for metrics, terms, dimensions
+    db/                  DuckDB connection helpers
+    execution/           Executes validated SQL
+    exporting/           CSV/JSON export support
+    feedback/            User feedback and quality summary
+    governance/          Governance audit evidence
+    intent/              Intent classification fallback
+    llm/                 Bedrock Titan client
+    orchestration/       LangGraph assistant flow
+    retrieval/           Metadata retrieval for context
+    schemas/             Pydantic request/response models
+    semantic/            Metric/dimension resolution
+    sql/                 SQL generation and validation
+    synthetic_data/      Synthetic commercial banking data and metadata
+    tests/               Regression tests
+  frontend/
+    index.html
+    assets/app.js
+    assets/styles.css
+  docs/
+    backend_beginner_guide.html</code></pre>
+      </section>
+
+      <section id="runtime">
+        <h2>4. Runtime Setup</h2>
+        <h3>Backend</h3>
+        <pre><code>cd /Users/sunspai/Documents/BankingProject
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python3 -m backend.app.synthetic_data.generate
+uvicorn backend.app.main:app --reload --port 8000</code></pre>
+        <h3>Frontend</h3>
+        <p>The frontend is served by FastAPI at:</p>
+        <pre><code>http://localhost:8000/</code></pre>
+        <h3>Key environment variables</h3>
         <table>
-          <thead>
-            <tr><th>File</th><th>Function/Class</th><th>Input</th><th>Output</th><th>What it does</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>main.py</code></td><td><code>frontend()</code></td><td>None</td><td><code>FileResponse</code></td><td>Returns the frontend HTML page.</td></tr>
-            <tr><td><code>main.py</code></td><td><code>health()</code></td><td>None</td><td>Dictionary</td><td>Returns app name, version, database path, and database existence.</td></tr>
-            <tr><td><code>main.py</code></td><td><code>data_profile()</code></td><td>None</td><td>Dictionary</td><td>Returns database path and row counts for tables.</td></tr>
-            <tr><td><code>core/config.py</code></td><td><code>Settings</code></td><td>Environment variables</td><td>Settings object</td><td>Stores app version, DuckDB path, and Bedrock config.</td></tr>
-            <tr><td><code>core/config.py</code></td><td><code>get_settings()</code></td><td>None</td><td><code>Settings</code></td><td>Returns cached settings for the app.</td></tr>
-            <tr><td><code>db/connection.py</code></td><td><code>get_duckdb_path()</code></td><td>None</td><td><code>Path</code></td><td>Returns the configured DuckDB file path.</td></tr>
-            <tr><td><code>db/connection.py</code></td><td><code>connect(read_only=False)</code></td><td>Boolean</td><td>DuckDB connection</td><td>Opens a connection to the database.</td></tr>
-            <tr><td><code>db/connection.py</code></td><td><code>database_exists()</code></td><td>None</td><td>Boolean</td><td>Checks if the DuckDB file exists.</td></tr>
-            <tr><td><code>db/connection.py</code></td><td><code>fetch_all(sql, parameters)</code></td><td>SQL string and optional parameters</td><td>List of dictionaries</td><td>Runs a read query and returns rows as dictionaries.</td></tr>
-            <tr><td><code>db/connection.py</code></td><td><code>table_counts()</code></td><td>None</td><td>List of dictionaries</td><td>Returns table names and row counts.</td></tr>
-          </tbody>
+          <tr><th>Variable</th><th>Purpose</th></tr>
+          <tr><td><code>BANKING_ASSISTANT_BEDROCK_ENABLED</code></td><td>Set to <code>true</code> to call AWS Bedrock Titan.</td></tr>
+          <tr><td><code>BANKING_ASSISTANT_AWS_REGION</code></td><td>AWS region for Bedrock runtime.</td></tr>
+          <tr><td><code>BANKING_ASSISTANT_BEDROCK_MODEL_ID</code></td><td>Titan model id, default <code>amazon.titan-text-express-v1</code>.</td></tr>
+          <tr><td><code>BANKING_ASSISTANT_REDIS_ENABLED</code></td><td>Set to <code>true</code> to use Redis cache.</td></tr>
+          <tr><td><code>BANKING_ASSISTANT_REDIS_URL</code></td><td>Redis connection URL.</td></tr>
         </table>
       </section>
 
-      <section id="api-functions">
-        <h2>7. API Route Functions</h2>
-        <p>API functions are thin wrappers. They receive validated schema objects, call a service, and return a dictionary.</p>
+      <section id="end-to-end">
+        <h2>5. End-to-End Chat Flow</h2>
+        <div class="flow">User sends message in browser
+  -> frontend/assets/app.js sendChat()
+  -> POST /chat/message
+  -> backend/app/api/chat.py chat_message()
+  -> conversation_store.ensure_conversation()
+  -> llm_governed_assistant_graph.invoke()
+  -> LangGraph nodes:
+       memory
+       retrieve
+       interpret
+       respond
+  -> if informational:
+       answer from metadata only
+  -> if analytical/chart:
+       resolve metric and dimensions
+       ask clarification if ambiguous
+       generate governed SQL
+       validate SQL references and access controls
+       execute SQL in DuckDB
+       generate answer
+       generate chart if requested
+       build audit evidence
+  -> record turn in conversation tables
+  -> return ChatResponse JSON
+  -> frontend renders answer, table, chart, SQL, sources, audit, feedback</div>
+        <p>
+          The file to study first is <code>backend/app/orchestration/llm_graph.py</code>. It is the main brain of the chat experience.
+        </p>
+      </section>
+
+      <section id="llm">
+        <h2>6. LLM and Bedrock Flow</h2>
+        <p>
+          The LLM client lives in <code>backend/app/llm/client.py</code>. It has one main public function:
+          <code>invoke_json()</code>.
+        </p>
         <table>
-          <thead>
-            <tr><th>File</th><th>Endpoint / Function</th><th>Input</th><th>Output</th><th>Service called</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>api/chat.py</code></td><td><code>POST /chat/message</code> / <code>chat_message()</code></td><td><code>ChatRequest</code></td><td><code>ChatResponse</code></td><td><code>llm_governed_assistant_graph.invoke()</code>, audit, conversation store</td></tr>
-            <tr><td><code>api/chat.py</code></td><td><code>GET /chat/conversations</code> / <code>list_conversations()</code></td><td><code>limit</code></td><td>Conversation list</td><td><code>conversation_store.list_conversations()</code></td></tr>
-            <tr><td><code>api/chat.py</code></td><td><code>GET /chat/conversations/{id}</code> / <code>get_conversation()</code></td><td>Conversation id</td><td>Conversation detail or 404</td><td><code>conversation_store.get_conversation()</code></td></tr>
-            <tr><td><code>api/intent.py</code></td><td><code>classify_intent()</code></td><td><code>IntentClassificationRequest</code></td><td><code>IntentClassificationResponse</code></td><td><code>intent_classifier.classify()</code></td></tr>
-            <tr><td><code>api/semantic.py</code></td><td><code>resolve_semantics()</code></td><td><code>SemanticResolutionRequest</code></td><td><code>SemanticResolutionResponse</code></td><td><code>semantic_resolver.resolve()</code></td></tr>
-            <tr><td><code>api/sql.py</code></td><td><code>generate_sql()</code></td><td><code>SqlGenerationRequest</code></td><td><code>SqlGenerationResponse</code></td><td><code>governed_sql_service.generate_from_message()</code></td></tr>
-            <tr><td><code>api/execution.py</code></td><td><code>execute_query()</code></td><td><code>QueryExecutionRequest</code></td><td><code>QueryExecutionResponse</code></td><td><code>governed_query_executor.execute_from_message()</code></td></tr>
-            <tr><td><code>api/answer.py</code></td><td><code>generate_answer()</code></td><td><code>AnalyticalAnswerRequest</code></td><td><code>AnalyticalAnswerResponse</code></td><td><code>governed_answer_generator.answer_from_message()</code></td></tr>
-            <tr><td><code>api/chart.py</code></td><td><code>generate_chart()</code></td><td><code>ChartGenerationRequest</code></td><td><code>ChartGenerationResponse</code></td><td><code>governed_chart_generator.chart_from_message()</code></td></tr>
-            <tr><td><code>api/governance.py</code></td><td><code>build_governance_audit()</code></td><td><code>GovernanceAuditRequest</code></td><td><code>GovernanceAuditResponse</code></td><td><code>governance_audit_service.build_from_chat_response()</code></td></tr>
-            <tr><td><code>api/export.py</code></td><td><code>create_export()</code></td><td><code>ExportCreateRequest</code></td><td><code>ExportCreateResponse</code></td><td><code>export_service.create_export()</code></td></tr>
-            <tr><td><code>api/export.py</code></td><td><code>list_exports()</code></td><td>Conversation id, limit</td><td>Export list</td><td><code>export_service.list_exports()</code></td></tr>
-            <tr><td><code>api/export.py</code></td><td><code>get_export()</code>, <code>download_export()</code>, <code>view_export()</code></td><td>Export id</td><td>Export metadata or content</td><td><code>export_service.get_export()</code></td></tr>
-            <tr><td><code>api/curation.py</code></td><td><code>upsert_business_term()</code>, <code>upsert_metric()</code>, <code>upsert_dimension()</code>, <code>upsert_synonym()</code></td><td>Curation request models</td><td>Curation event</td><td><code>curation_service</code></td></tr>
-            <tr><td><code>api/feedback.py</code></td><td><code>create_feedback()</code></td><td><code>FeedbackCreateRequest</code></td><td><code>FeedbackCreateResponse</code></td><td><code>feedback_service.create_feedback()</code></td></tr>
-            <tr><td><code>api/feedback.py</code></td><td><code>list_feedback()</code>, <code>quality_summary()</code></td><td>Filters or limit</td><td>Feedback records or summary</td><td><code>feedback_service</code></td></tr>
-          </tbody>
+          <tr><th>Function</th><th>Input</th><th>Output</th><th>What it does</th></tr>
+          <tr>
+            <td><code>BedrockTitanClient.invoke_json()</code></td>
+            <td>Task name, system prompt, input payload, fallback function</td>
+            <td>Parsed JSON dictionary</td>
+            <td>Calls Bedrock Titan if enabled. If disabled or failing, calls local fallback.</td>
+          </tr>
+          <tr>
+            <td><code>_invoke_bedrock()</code></td>
+            <td>Prompt and JSON payload</td>
+            <td>Raw text from Bedrock</td>
+            <td>Uses <code>boto3</code> Bedrock runtime <code>converse</code>.</td>
+          </tr>
+          <tr>
+            <td><code>_parse_json()</code></td>
+            <td>Raw model text</td>
+            <td>Python dictionary</td>
+            <td>Extracts and parses JSON even if model wraps it in markdown fences.</td>
+          </tr>
+        </table>
+        <div class="callout">
+          Even when Bedrock is enabled, LLM choices do not directly create SQL. The semantic resolver and SQL validator still apply governance checks.
+        </div>
+      </section>
+
+      <section id="governance">
+        <h2>7. Governance Layer</h2>
+        <p>The governance layer prevents the bot from inventing or using unsafe data assets.</p>
+        <h3>What is governed?</h3>
+        <ul>
+          <li>A metric is governed if it exists in <code>metadata_metric</code> with a certified definition and calculation.</li>
+          <li>A dimension is governed if it exists in <code>metadata_dimension</code>.</li>
+          <li>A table or column is governed if it exists in <code>metadata_table</code> or <code>metadata_column</code>.</li>
+          <li>A join is governed if it exists in <code>metadata_join_path</code>.</li>
+        </ul>
+        <h3>Governance checks</h3>
+        <table>
+          <tr><th>File</th><th>Purpose</th></tr>
+          <tr><td><code>semantic/resolver.py</code></td><td>Resolves user words to certified metric and dimension IDs.</td></tr>
+          <tr><td><code>sql/validator.py</code></td><td>Validates SQL is SELECT-only and references only allowed tables/columns.</td></tr>
+          <tr><td><code>governance/audit.py</code></td><td>Builds evidence for tables, lineage, access policy, and SQL validation.</td></tr>
+          <tr><td><code>catalog/service.py</code></td><td>Reads metadata catalog records used by governance.</td></tr>
         </table>
       </section>
 
-      <section id="metadata-api">
-        <h2>8. Metadata API Functions</h2>
-        <p>These routes expose the governed catalog to developers and the UI.</p>
+      <section id="clarification">
+        <h2>8. Clarification Engine</h2>
+        <p>
+          The app now uses a generic pending-task pattern for ambiguous analytical requests. This is important for questions like:
+          <code>can you give balance by segment</code>.
+        </p>
+        <h3>Pending task structure</h3>
+        <pre><code>{
+  "task_type": "analytical",
+  "original_message": "can you give balance by segment",
+  "intent": "analytical_query",
+  "resolved_metric_id": null,
+  "resolved_dimension_ids": [],
+  "missing_slots": ["metric", "dimension"],
+  "clarification_options": [...]
+}</code></pre>
+        <h3>Important functions</h3>
         <table>
-          <thead>
-            <tr><th>Function</th><th>Input</th><th>Output</th><th>Use</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>list_tables()</code></td><td>Optional subject area, certified flag</td><td>Tables</td><td>Browse governed tables.</td></tr>
-            <tr><td><code>get_table(table_name)</code></td><td>Table name</td><td>Table detail</td><td>Return table plus columns/joins/lineage.</td></tr>
-            <tr><td><code>list_columns()</code></td><td>Optional table name and search query</td><td>Columns</td><td>Find metadata columns.</td></tr>
-            <tr><td><code>list_join_paths()</code></td><td>Optional table name</td><td>Join paths</td><td>See certified joins.</td></tr>
-            <tr><td><code>search_governed_candidates()</code></td><td>Phrase, target type, exact match flag</td><td>Candidate metrics/dimensions/terms</td><td>Resolve ambiguous terms like "average balance".</td></tr>
-            <tr><td><code>search_metadata()</code></td><td>Query text, optional type, limit</td><td>Search results</td><td>Retrieve metadata context.</td></tr>
-            <tr><td><code>list_search_documents()</code></td><td>Optional document type</td><td>Search documents</td><td>Debug the search index.</td></tr>
-            <tr><td><code>list_business_terms()</code></td><td>Optional query and subject area</td><td>Glossary terms</td><td>Answer definition questions.</td></tr>
-            <tr><td><code>list_metrics()</code>, <code>get_metric()</code></td><td>Filters or metric id</td><td>Metric records</td><td>Certified metric lookup.</td></tr>
-            <tr><td><code>list_dimensions()</code>, <code>get_dimension()</code></td><td>Filters or dimension id</td><td>Dimension records</td><td>Certified dimension lookup.</td></tr>
-            <tr><td><code>list_lineage()</code></td><td>Optional asset name</td><td>Lineage records</td><td>Source/lineage answers.</td></tr>
-            <tr><td><code>list_access_policies()</code></td><td>Optional role</td><td>Access policies</td><td>Governance/audit evidence.</td></tr>
-          </tbody>
+          <tr><th>Function</th><th>Input</th><th>Output</th><th>Why it matters</th></tr>
+          <tr>
+            <td><code>_preflight_clarification()</code></td>
+            <td>Current state and LLM decision</td>
+            <td>Clarification response or <code>None</code></td>
+            <td>Runs semantic resolver before SQL so LLM-selected assets cannot bypass ambiguity.</td>
+          </tr>
+          <tr>
+            <td><code>_pending_choice_resolution()</code></td>
+            <td>Current message and conversation memory</td>
+            <td>LLM decision dictionary or <code>None</code></td>
+            <td>Checks whether this message is a follow-up to a pending clarification.</td>
+          </tr>
+          <tr>
+            <td><code>_resolve_pending_task_followup()</code></td>
+            <td>Follow-up text and pending task</td>
+            <td>Analytics or clarification decision</td>
+            <td>Merges a user's follow-up selection into the original task.</td>
+          </tr>
+          <tr>
+            <td><code>_merge_pending_dimension_selection()</code></td>
+            <td>Current dimensions, new dimensions, pending task</td>
+            <td>Clean dimension ID list</td>
+            <td>Prevents old and new dimension choices from being combined incorrectly.</td>
+          </tr>
+          <tr>
+            <td><code>_pending_task_clarification_question()</code></td>
+            <td>Pending task</td>
+            <td>Human-readable clarification text</td>
+            <td>Explains what was understood, what is missing, and what choices are available.</td>
+          </tr>
+        </table>
+        <h3>Example</h3>
+        <pre><code>User: can you give balance by segment
+Bot: I still need a certified governed metric and grouping.
+     Metric options: Average Deposit Ledger Balance, Average Available Balance, ...
+     Dimension options: Customer Segment, Product Segment
+
+User: Product Segment
+Bot: I already captured Product Segment as the grouping.
+     I still need a certified governed metric.
+
+User: Average Deposit Ledger Balance
+Bot: Generates SQL grouped by product_segment only.</code></pre>
+      </section>
+
+      <section id="cache">
+        <h2>9. Cache and New Conversation</h2>
+        <p>
+          Cache logic lives in <code>backend/app/cache/service.py</code>. The current standard is:
+        </p>
+        <ul>
+          <li>Do not cache clarification responses.</li>
+          <li>Do not cache vague prompts as final answers.</li>
+          <li>Cache only after the request is resolved into a governed semantic plan.</li>
+          <li>Include resolved metric, dimensions, filters, chart settings, SQL, user role, limit, app version, model id, and metadata version in the cache key.</li>
+          <li>Clear cache when New Conversation is clicked.</li>
+        </ul>
+        <h3>Important functions</h3>
+        <table>
+          <tr><th>Function</th><th>What it does</th></tr>
+          <tr><td><code>build_resolved_plan_key()</code></td><td>Builds the safe cache key after metric/dimensions/SQL are known.</td></tr>
+          <tr><td><code>get()</code></td><td>Checks Redis first, then local memory cache.</td></tr>
+          <tr><td><code>set()</code></td><td>Stores cache with TTL in Redis and/or local memory.</td></tr>
+          <tr><td><code>clear()</code></td><td>Clears local cache and Redis keys for both raw and resolved cache namespaces.</td></tr>
+        </table>
+        <h3>New Conversation reset</h3>
+        <p>
+          In the frontend, clicking New Conversation calls:
+        </p>
+        <pre><code>POST /chat/session/reset</code></pre>
+        <p>
+          The endpoint is in <code>backend/app/api/chat.py</code> and calls <code>assistant_response_cache.clear()</code>.
+          The frontend disables input while reset is running so a user cannot send a new question before reset finishes.
+        </p>
+      </section>
+
+      <section id="metadata">
+        <h2>10. Metadata Catalog</h2>
+        <p>
+          Metadata is generated by <code>backend/app/synthetic_data/metadata_seed.py</code> and read by
+          <code>backend/app/catalog/service.py</code>.
+        </p>
+        <table>
+          <tr><th>Metadata table</th><th>Purpose</th></tr>
+          <tr><td><code>metadata_table</code></td><td>Governed table definitions, grain, owner, refresh frequency.</td></tr>
+          <tr><td><code>metadata_column</code></td><td>Column descriptions, data types, PII/restricted flags.</td></tr>
+          <tr><td><code>metadata_metric</code></td><td>Certified metric definitions and calculation SQL.</td></tr>
+          <tr><td><code>metadata_dimension</code></td><td>Business grouping attributes and physical table/column mappings.</td></tr>
+          <tr><td><code>metadata_synonym</code></td><td>Maps user phrases like "segment" to candidate metrics/dimensions.</td></tr>
+          <tr><td><code>metadata_join_path</code></td><td>Certified join routes between fact and dimension tables.</td></tr>
+          <tr><td><code>metadata_lineage</code></td><td>Source system and transformation evidence.</td></tr>
+          <tr><td><code>metadata_access_policy</code></td><td>Role-based access and masking policy metadata.</td></tr>
+          <tr><td><code>metadata_search_document</code></td><td>Search index documents used for retrieval.</td></tr>
+        </table>
+        <h3>Common catalog functions</h3>
+        <table>
+          <tr><th>Function</th><th>Input</th><th>Output</th></tr>
+          <tr><td><code>list_tables()</code></td><td>Optional subject/type/certified filters</td><td>List of governed tables</td></tr>
+          <tr><td><code>get_table(table_name)</code></td><td>Physical table name</td><td>Table plus columns, joins, lineage</td></tr>
+          <tr><td><code>list_metrics()</code></td><td>Optional query/subject/certified filters</td><td>Metric catalog rows</td></tr>
+          <tr><td><code>get_metric(metric_id)</code></td><td>Metric ID</td><td>One metric record</td></tr>
+          <tr><td><code>list_dimensions()</code></td><td>Optional query/subject/certified filters</td><td>Dimension catalog rows</td></tr>
+          <tr><td><code>search_metadata()</code></td><td>User query</td><td>Ranked search documents</td></tr>
+          <tr><td><code>search_governed_candidates()</code></td><td>Phrase and target type</td><td>Governed synonym candidates</td></tr>
         </table>
       </section>
 
-      <section id="llm-orchestration">
-        <h2>9. LLM Orchestration Functions</h2>
-        <p><code>backend/app/orchestration/llm_graph.py</code> is the main brain of the chatbot.</p>
-        <table>
-          <thead>
-            <tr><th>Function</th><th>Input</th><th>Output</th><th>Beginner explanation</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>__init__()</code></td><td>None</td><td>Compiled LangGraph</td><td>Creates graph nodes: memory, retrieve, interpret, respond.</td></tr>
-            <tr><td><code>invoke(...)</code></td><td>User message, conversation id, selected metric/dimensions, role, limit, execute flag</td><td>Chat response dictionary</td><td>Entry point used by <code>/chat/message</code>.</td></tr>
-            <tr><td><code>_memory(state)</code></td><td>Current graph state</td><td>State update with previous turns</td><td>Loads prior conversation so clarification replies make sense.</td></tr>
-            <tr><td><code>_retrieve(state)</code></td><td>Current graph state</td><td>Metadata context and citations</td><td>Gets relevant governed metadata before the LLM decides.</td></tr>
-            <tr><td><code>_interpret(state)</code></td><td>State with message, memory, metadata</td><td>Information/clarification/unsupported/analytics state</td><td>Calls LLM or fallback, normalizes the decision, enforces policy, routes the request.</td></tr>
-            <tr><td><code>_analytics(state, decision)</code></td><td>State and safe decision</td><td>SQL/execution/answer/chart state</td><td>Runs the analytical path when SQL is allowed.</td></tr>
-            <tr><td><code>_normalize_decision(decision)</code></td><td>Raw LLM JSON</td><td>Clean decision dictionary</td><td>Fixes or blocks inconsistent intent/response modes.</td></tr>
-            <tr><td><code>_policy_for_decision(decision)</code></td><td>Normalized decision</td><td>Allowed SQL/chart flags and policy reason</td><td>Backend safety gate. Prevents definitions from running SQL.</td></tr>
-            <tr><td><code>_local_resolution(state)</code></td><td>State</td><td>Decision dictionary</td><td>Fallback path when Bedrock is disabled.</td></tr>
-            <tr><td><code>_resolve_pending_choice(message, pending)</code></td><td>User reply and prior options</td><td>Selected metric id and dimension ids</td><td>Maps a follow-up answer to a prior clarification.</td></tr>
-            <tr><td><code>_clarification_question(ambiguities)</code></td><td>Ambiguity list</td><td>Question text</td><td>Builds readable follow-up choices.</td></tr>
-            <tr><td><code>_information_answer(decision, context)</code></td><td>LLM decision and metadata context</td><td>Answer text</td><td>Answers definition, metadata, and lineage-style questions without SQL.</td></tr>
-            <tr><td><code>_resolver_prompt()</code></td><td>None</td><td>Prompt string</td><td>Instructions sent to Bedrock Titan for intent and semantic decisions.</td></tr>
-            <tr><td><code>_answer_prompt()</code></td><td>None</td><td>Prompt string</td><td>Instructions sent to Bedrock for final answer wording.</td></tr>
-            <tr><td><code>_response(state)</code></td><td>Final graph state</td><td>Chat response dictionary</td><td>Assembles fields returned to the API and frontend.</td></tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section id="llm-client">
-        <h2>10. LLM Client Functions</h2>
-        <table>
-          <thead>
-            <tr><th>File</th><th>Function</th><th>Input</th><th>Output</th><th>What it does</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>llm/client.py</code></td><td><code>BedrockTitanClient.__init__()</code></td><td>None</td><td>Client object</td><td>Loads settings.</td></tr>
-            <tr><td><code>llm/client.py</code></td><td><code>invoke_json(task_name, system_prompt, input_payload, fallback)</code></td><td>Task name, prompt, input dictionary, fallback function</td><td>Decision/answer dictionary</td><td>Calls Bedrock if enabled. Otherwise calls fallback.</td></tr>
-            <tr><td><code>llm/client.py</code></td><td><code>_invoke_bedrock(system_prompt, input_payload)</code></td><td>Prompt and JSON payload</td><td>Raw text from Bedrock</td><td>Uses <code>boto3</code> Bedrock Runtime <code>converse</code>.</td></tr>
-            <tr><td><code>llm/client.py</code></td><td><code>_parse_json(text)</code></td><td>Text response</td><td>Dictionary</td><td>Extracts JSON from model output.</td></tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section id="catalog-retrieval">
-        <h2>11. Catalog, Search, and Retrieval Functions</h2>
-        <h3>Catalog service</h3>
-        <table>
-          <thead><tr><th>Function</th><th>Input</th><th>Output</th><th>Purpose</th></tr></thead>
-          <tbody>
-            <tr><td><code>list_tables()</code></td><td>Filters</td><td>List of tables</td><td>Read governed table metadata.</td></tr>
-            <tr><td><code>get_table(table_name)</code></td><td>Table name</td><td>Table or None</td><td>Get one table definition.</td></tr>
-            <tr><td><code>list_columns()</code></td><td>Optional table/query filters</td><td>List of columns</td><td>Read column metadata.</td></tr>
-            <tr><td><code>list_business_terms()</code></td><td>Optional query/subject</td><td>Glossary terms</td><td>Read business definitions.</td></tr>
-            <tr><td><code>list_metrics()</code>, <code>get_metric()</code></td><td>Filters or id</td><td>Metric records</td><td>Certified metric lookup.</td></tr>
-            <tr><td><code>list_dimensions()</code>, <code>get_dimension()</code></td><td>Filters or id</td><td>Dimension records</td><td>Certified dimension lookup.</td></tr>
-            <tr><td><code>list_join_paths()</code></td><td>Optional table</td><td>Join records</td><td>Find approved joins.</td></tr>
-            <tr><td><code>list_lineage()</code></td><td>Optional asset</td><td>Lineage records</td><td>Trace source to business asset.</td></tr>
-            <tr><td><code>list_access_policies()</code></td><td>Optional role</td><td>Policy records</td><td>Role/access evidence.</td></tr>
-            <tr><td><code>list_synonyms()</code></td><td>Optional target type</td><td>Synonym records</td><td>Map user phrases to governed assets.</td></tr>
-            <tr><td><code>search_metadata()</code></td><td>Query, type, limit, min score</td><td>Ranked search results</td><td>Retrieve context for LLM and metadata answers.</td></tr>
-            <tr><td><code>search_governed_candidates()</code></td><td>Phrase, target type, exact match</td><td>Candidate assets</td><td>Show clarification options.</td></tr>
-          </tbody>
-        </table>
-        <h3>Retrieval and search index</h3>
-        <table>
-          <thead><tr><th>Function</th><th>Input</th><th>Output</th><th>Purpose</th></tr></thead>
-          <tbody>
-            <tr><td><code>MetadataRetriever.retrieve(message, limit)</code></td><td>User message and result limit</td><td>Context dictionary</td><td>Returns search results, candidate groups, citations, and typed metadata lists.</td></tr>
-            <tr><td><code>_candidate_groups(message)</code></td><td>User message</td><td>Candidate groups</td><td>Finds synonyms in the message and returns possible governed matches.</td></tr>
-            <tr><td><code>_citations(search_results, candidate_groups)</code></td><td>Search/candidate records</td><td>Citation list</td><td>Builds source citations shown to the user.</td></tr>
-            <tr><td><code>tokenize(text)</code></td><td>Text</td><td>Token list</td><td>Splits search text into tokens.</td></tr>
-            <tr><td><code>build_sparse_vector(text)</code></td><td>Text</td><td>Term-weight dictionary</td><td>Creates simple vector representation for search.</td></tr>
-            <tr><td><code>cosine_similarity(left, right)</code></td><td>Two vectors</td><td>Float score</td><td>Scores search similarity.</td></tr>
-            <tr><td><code>create_search_schema(conn)</code></td><td>DuckDB connection</td><td>None</td><td>Creates search document table.</td></tr>
-            <tr><td><code>seed_search_index(conn)</code></td><td>DuckDB connection</td><td>None</td><td>Builds and inserts search documents.</td></tr>
-            <tr><td><code>build_search_documents(conn)</code></td><td>DuckDB connection</td><td>Rows</td><td>Creates searchable documents from metadata tables.</td></tr>
-            <tr><td><code>search_documents(conn, query, ...)</code></td><td>Connection, query, filters</td><td>Ranked records</td><td>Searches metadata documents.</td></tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section id="intent-semantic">
-        <h2>12. Intent and Semantic Resolver Functions</h2>
-        <h3>Intent classifier</h3>
-        <table>
-          <thead><tr><th>Function/Class</th><th>Input</th><th>Output</th><th>Purpose</th></tr></thead>
-          <tbody>
-            <tr><td><code>IntentType</code></td><td>None</td><td>String constants</td><td>Names of supported intents.</td></tr>
-            <tr><td><code>IntentResult</code></td><td>Fields like message, intent, confidence</td><td>Object with <code>to_dict()</code></td><td>Structured classifier output.</td></tr>
-            <tr><td><code>IntentClassifier.classify(message, awaiting_clarification, context)</code></td><td>User message and context</td><td><code>IntentResult</code></td><td>Local rule-based intent classifier.</td></tr>
-          </tbody>
-        </table>
+      <section id="sql">
+        <h2>11. SQL Flow</h2>
+        <div class="flow">semantic_resolver.resolve()
+  -> governed_query_plan
+  -> governed_sql_generator.generate()
+  -> governed_sql_validator.validate()
+  -> governed_query_executor.execute_sql_result()</div>
         <h3>Semantic resolver</h3>
+        <p>
+          <code>backend/app/semantic/resolver.py</code> converts natural language into a governed query plan.
+        </p>
         <table>
-          <thead><tr><th>Function</th><th>Input</th><th>Output</th><th>Purpose</th></tr></thead>
-          <tbody>
-            <tr><td><code>resolve(...)</code></td><td>Message, intent, selected metric/dimensions, clarification state, context</td><td><code>SemanticResolutionResult</code></td><td>Main resolver. Produces information-only, unsupported, clarification, or resolved query plan.</td></tr>
-            <tr><td><code>_resolve_metric()</code></td><td>Message, selected metric id, retrieval context</td><td>Metric object and ambiguities</td><td>Finds the governed metric.</td></tr>
-            <tr><td><code>_resolve_dimensions()</code></td><td>Message, selected dimension ids, retrieval context</td><td>Dimension objects and ambiguities</td><td>Finds governed dimensions.</td></tr>
-            <tr><td><code>_matched_candidate_groups()</code></td><td>Message and target type</td><td>Candidate groups</td><td>Finds synonym matches for metrics or dimensions.</td></tr>
-            <tr><td><code>_build_query_plan()</code></td><td>Metric, dimensions, intent, extracted entities</td><td>Query plan or ambiguities</td><td>Builds the server-side governed query plan.</td></tr>
-            <tr><td><code>_resolve_filters()</code></td><td>Intent and extracted entities</td><td>Filter records</td><td>Adds time filters like last 12 months.</td></tr>
-            <tr><td><code>_find_join_path()</code></td><td>Base table and target table</td><td>Join path list or None</td><td>Finds approved joins from metric table to dimension table.</td></tr>
-            <tr><td><code>_ambiguity()</code></td><td>Kind, phrase, question, options</td><td>Ambiguity dictionary</td><td>Creates clarification payloads.</td></tr>
-            <tr><td><code>_candidate_option()</code></td><td>Candidate record</td><td>Option dictionary</td><td>Formats a candidate for the UI.</td></tr>
-            <tr><td><code>_candidate_to_metric()</code>, <code>_candidate_to_dimension()</code></td><td>Candidate record</td><td>Metric/dimension object or None</td><td>Converts catalog candidates into resolver objects.</td></tr>
-            <tr><td><code>_top_metric_options()</code>, <code>_top_dimension_options()</code></td><td>Retrieval context</td><td>Option lists</td><td>Provides fallback clarification options.</td></tr>
-            <tr><td><code>_split_columns()</code>, <code>_first_measure_column()</code></td><td>Column text/list</td><td>Parsed column values</td><td>Utility helpers for metric metadata.</td></tr>
-            <tr><td><code>_dedupe_by_id()</code>, <code>_dedupe_joins()</code></td><td>Lists</td><td>Deduped lists</td><td>Removes repeated assets.</td></tr>
-            <tr><td><code>_normalize()</code>, <code>_phrase_in_message()</code></td><td>Text inputs</td><td>Normalized text or boolean</td><td>Text matching helpers.</td></tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section id="sql-layer">
-        <h2>13. SQL Service, Generator, and Validator</h2>
-        <h3>SQL service</h3>
-        <table>
-          <thead><tr><th>Function/Class</th><th>Input</th><th>Output</th><th>Purpose</th></tr></thead>
-          <tbody>
-            <tr><td><code>SqlServiceStatus</code></td><td>None</td><td>Status constants</td><td>Names statuses like generated, invalid, needs clarification.</td></tr>
-            <tr><td><code>SqlServiceResult.to_dict()</code></td><td>Object fields</td><td>Dictionary</td><td>Converts result object for APIs.</td></tr>
-            <tr><td><code>generate_from_message(...)</code></td><td>Message, intent, selected assets, role, technical mode, context, plan, limit</td><td><code>SqlServiceResult</code></td><td>Resolves semantics, generates SQL, applies visibility, returns validation.</td></tr>
-            <tr><td><code>_blocked_result()</code></td><td>Message and semantic result</td><td><code>SqlServiceResult</code></td><td>Creates response when SQL cannot be generated.</td></tr>
-            <tr><td><code>_is_sql_visible(user_role, technical_mode)</code></td><td>User role and technical mode</td><td>Boolean</td><td>Decides whether SQL text is shown.</td></tr>
-          </tbody>
+          <tr><th>Function</th><th>Role</th></tr>
+          <tr><td><code>resolve()</code></td><td>Main entry point. Returns resolved, needs clarification, information only, or unsupported.</td></tr>
+          <tr><td><code>_resolve_metric()</code></td><td>Finds the certified governed metric.</td></tr>
+          <tr><td><code>_resolve_dimensions()</code></td><td>Finds governed grouping dimensions.</td></tr>
+          <tr><td><code>_related_metric_options()</code></td><td>Suggests related certified metrics when exact metric is missing.</td></tr>
+          <tr><td><code>_build_query_plan()</code></td><td>Builds plan with metric, dimensions, base table, joins, filters.</td></tr>
+          <tr><td><code>_find_join_path()</code></td><td>Finds certified join path from base table to target dimension table.</td></tr>
+          <tr><td><code>_restricted_dimension_ambiguities()</code></td><td>Blocks restricted columns and suggests safe replacements.</td></tr>
         </table>
         <h3>SQL generator</h3>
-        <table>
-          <thead><tr><th>Function</th><th>Input</th><th>Output</th><th>Purpose</th></tr></thead>
-          <tbody>
-            <tr><td><code>generate(governed_query_plan, limit)</code></td><td>Server-built plan and row limit</td><td><code>SqlGenerationResult</code></td><td>Builds SQL and validates it.</td></tr>
-            <tr><td><code>_select_parts()</code></td><td>Plan and table aliases</td><td>List of SELECT expressions</td><td>Creates selected dimension and metric expressions.</td></tr>
-            <tr><td><code>_join_parts()</code></td><td>Plan and aliases</td><td>List of JOIN clauses</td><td>Creates approved joins.</td></tr>
-            <tr><td><code>_where_parts()</code></td><td>Plan and aliases</td><td>List of WHERE conditions</td><td>Creates filter SQL.</td></tr>
-            <tr><td><code>_date_filter_sql()</code></td><td>Filter id, base table, alias, date column</td><td>SQL string or None</td><td>Converts time filter names into SQL conditions.</td></tr>
-            <tr><td><code>_group_by_parts()</code></td><td>Plan and aliases</td><td>List of GROUP BY expressions</td><td>Groups by selected dimensions.</td></tr>
-            <tr><td><code>_aliases_for_plan()</code></td><td>Plan</td><td>Alias map</td><td>Maps table names to short aliases like <code>fdb</code>.</td></tr>
-            <tr><td><code>_metric_expression()</code></td><td>Calculation SQL and aliases</td><td>SQL expression</td><td>Rewrites metric calculation with table aliases.</td></tr>
-            <tr><td><code>_summary()</code></td><td>Plan</td><td>Text summary</td><td>Describes generated SQL.</td></tr>
-            <tr><td><code>_output_name()</code>, <code>_fallback_alias()</code></td><td>Id or table name</td><td>String</td><td>Utility naming helpers.</td></tr>
-          </tbody>
-        </table>
+        <p>
+          <code>backend/app/sql/generator.py</code> builds SQL from the governed query plan. It does not decide governance.
+          It receives already-approved metric and dimension objects.
+        </p>
         <h3>SQL validator</h3>
+        <p>
+          <code>backend/app/sql/validator.py</code> protects execution. It checks:
+        </p>
+        <ul>
+          <li>Only SELECT statements.</li>
+          <li>Referenced tables and columns match the allowed governed plan.</li>
+          <li>Restricted columns are not used.</li>
+          <li>DuckDB can compile the query.</li>
+        </ul>
+      </section>
+
+      <section id="answer-chart">
+        <h2>12. Answers and Charts</h2>
+        <h3>Answer generation</h3>
+        <p>
+          <code>backend/app/answer/service.py</code> turns SQL result rows into a concise business answer.
+          It uses the LLM when enabled, with deterministic fallback.
+        </p>
         <table>
-          <thead><tr><th>Function</th><th>Input</th><th>Output</th><th>Purpose</th></tr></thead>
-          <tbody>
-            <tr><td><code>validate(sql, governed_query_plan)</code></td><td>SQL text and plan</td><td><code>SqlValidationResult</code></td><td>Main SQL safety check.</td></tr>
-            <tr><td><code>_validate_select_only()</code></td><td>SQL and error list</td><td>Mutates errors</td><td>Blocks non-SELECT and unsafe tokens.</td></tr>
-            <tr><td><code>_validate_plan()</code></td><td>Plan and errors</td><td>Mutates errors</td><td>Checks certified metrics, dimensions, and joins.</td></tr>
-            <tr><td><code>_allowed_tables()</code></td><td>Plan</td><td>Set of tables</td><td>Computes governed table allowlist.</td></tr>
-            <tr><td><code>_allowed_columns()</code></td><td>Plan</td><td>Set of qualified columns</td><td>Computes governed column allowlist.</td></tr>
-            <tr><td><code>_validate_sql_references()</code></td><td>SQL, allowed tables, allowed columns, errors</td><td>Mutates errors</td><td>Parses SQL and blocks unallowed references.</td></tr>
-            <tr><td><code>_validate_access_controls()</code></td><td>Allowed columns and errors</td><td>Mutates errors</td><td>Blocks restricted columns.</td></tr>
-            <tr><td><code>_validate_duckdb_compile()</code></td><td>SQL and errors</td><td>Mutates errors</td><td>Checks DuckDB can compile the query.</td></tr>
-            <tr><td><code>_get_column()</code></td><td>Table and column name</td><td>Column metadata or None</td><td>Loads column access metadata.</td></tr>
-          </tbody>
+          <tr><th>Function</th><th>Input</th><th>Output</th></tr>
+          <tr><td><code>answer_from_execution()</code></td><td>User message and execution result</td><td>Answer, key points, result overview</td></tr>
+          <tr><td><code>_llm_analytical_answer()</code></td><td>Execution rows and metadata context</td><td>LLM-generated answer JSON</td></tr>
+          <tr><td><code>_build_analytical_answer()</code></td><td>Execution result</td><td>Fallback summary with highest/lowest/trend points</td></tr>
+        </table>
+        <h3>Chart generation</h3>
+        <p>
+          <code>backend/app/chart/service.py</code> builds a chart specification. The frontend renders the chart from that spec.
+        </p>
+        <table>
+          <tr><th>Function</th><th>What it does</th></tr>
+          <tr><td><code>chart_from_answer_result()</code></td><td>Uses answer result and table columns to build chart spec.</td></tr>
+          <tr><td><code>_chart_plan()</code></td><td>LLM chart plan, with fallback.</td></tr>
+          <tr><td><code>_build_chart_spec()</code></td><td>Builds final chart type, axes, rows, labels, title.</td></tr>
+          <tr><td><code>_validated_x_column()</code></td><td>Ensures chart x-axis is a real result column.</td></tr>
         </table>
       </section>
 
-      <section id="execution-answer-chart">
-        <h2>14. Execution, Answer, and Chart Functions</h2>
+      <section id="frontend">
+        <h2>13. Frontend Flow</h2>
+        <p>
+          The frontend is a professional chat UI in <code>frontend/index.html</code>,
+          <code>frontend/assets/app.js</code>, and <code>frontend/assets/styles.css</code>.
+        </p>
+        <h3>Main JavaScript functions</h3>
         <table>
-          <thead><tr><th>File</th><th>Function</th><th>Input</th><th>Output</th><th>Purpose</th></tr></thead>
-          <tbody>
-            <tr><td><code>execution/service.py</code></td><td><code>execute_from_message(...)</code></td><td>Message, selected assets, role, limit, plan</td><td><code>QueryExecutionResult</code></td><td>Generates SQL then executes it if valid.</td></tr>
-            <tr><td><code>execution/service.py</code></td><td><code>QueryExecutionResult.to_dict()</code></td><td>Result object</td><td>Dictionary</td><td>Formats execution result for APIs.</td></tr>
-            <tr><td><code>answer/service.py</code></td><td><code>answer_from_message(...)</code></td><td>Message and analytics options</td><td><code>AnalyticalAnswerResult</code></td><td>Runs execution and builds an answer.</td></tr>
-            <tr><td><code>answer/service.py</code></td><td><code>answer_from_execution(message, execution_result)</code></td><td>User message and execution result</td><td><code>AnalyticalAnswerResult</code></td><td>Builds answer from an already executed query.</td></tr>
-            <tr><td><code>answer/service.py</code></td><td><code>_blocked_answer()</code></td><td>Message and failed execution result</td><td><code>AnalyticalAnswerResult</code></td><td>Returns safe response when query cannot be answered.</td></tr>
-            <tr><td><code>answer/service.py</code></td><td><code>_build_analytical_answer()</code></td><td>Execution dictionary</td><td>Answer details dictionary</td><td>Finds top/bottom/trend points and key facts.</td></tr>
-            <tr><td><code>answer/service.py</code></td><td><code>_metric_column()</code>, <code>_row_label()</code>, <code>_trend_point()</code></td><td>Rows/columns/metric metadata</td><td>Strings or point dictionaries</td><td>Helpers for readable summaries.</td></tr>
-            <tr><td><code>answer/service.py</code></td><td><code>_format_value()</code>, <code>_format_delta()</code></td><td>Numbers and value style</td><td>Formatted strings</td><td>Formats currency, percent, or count values.</td></tr>
-            <tr><td><code>chart/service.py</code></td><td><code>chart_from_message(...)</code></td><td>Message and analytics options</td><td><code>ChartGenerationResult</code></td><td>Runs answer flow and creates chart if possible.</td></tr>
-            <tr><td><code>chart/service.py</code></td><td><code>chart_from_answer_result(message, answer_result, chart_type)</code></td><td>Message, answer result, requested type</td><td><code>ChartGenerationResult</code></td><td>Creates chart from result table.</td></tr>
-            <tr><td><code>chart/service.py</code></td><td><code>_build_chart_spec()</code></td><td>Answer result and chart type</td><td>Plotly chart dictionary</td><td>Builds chart JSON used by the frontend.</td></tr>
-            <tr><td><code>chart/service.py</code></td><td><code>_chart_type()</code>, <code>_x_column()</code>, <code>_axis_label()</code>, <code>_title()</code></td><td>Metadata and column names</td><td>Strings</td><td>Chart formatting helpers.</td></tr>
-          </tbody>
+          <tr><th>Function</th><th>What it does</th></tr>
+          <tr><td><code>init()</code></td><td>Renders welcome content, recent conversations, binds controls, checks backend health.</td></tr>
+          <tr><td><code>sendChat(message)</code></td><td>POSTs the message to <code>/chat/message</code>.</td></tr>
+          <tr><td><code>renderAssistantResponse(payload)</code></td><td>Renders answer sections: Answer, Table, Chart, SQL, Sources, Governance Audit.</td></tr>
+          <tr><td><code>renderClarificationOptions()</code></td><td>Displays clickable metric/dimension choices.</td></tr>
+          <tr><td><code>renderChart()</code></td><td>Uses chart spec to draw the visual.</td></tr>
+          <tr><td><code>renderFeedback()</code></td><td>Shows thumbs up/down feedback controls.</td></tr>
         </table>
-      </section>
-
-      <section id="persistence-support">
-        <h2>15. Conversation, Audit, Export, Feedback, and Curation</h2>
-        <h3>Conversation store</h3>
-        <table>
-          <thead><tr><th>Function</th><th>Input</th><th>Output</th><th>Purpose</th></tr></thead>
-          <tbody>
-            <tr><td><code>ensure_schema()</code></td><td>None</td><td>None</td><td>Creates conversation tables if missing.</td></tr>
-            <tr><td><code>ensure_conversation(conversation_id, first_message, user_role)</code></td><td>Optional id, first message, role</td><td>Conversation id</td><td>Creates or reuses a conversation.</td></tr>
-            <tr><td><code>record_turn(conversation_id, request_payload, response_payload)</code></td><td>Conversation id and request/response dictionaries</td><td>Turn record</td><td>Saves one chat turn and creates <code>turn_id</code>.</td></tr>
-            <tr><td><code>list_conversations(limit)</code></td><td>Limit</td><td>Conversation summaries</td><td>Shows recent conversations.</td></tr>
-            <tr><td><code>get_conversation(conversation_id)</code></td><td>Conversation id</td><td>Conversation with turns or None</td><td>Loads a full chat history.</td></tr>
-          </tbody>
-        </table>
-        <h3>Governance audit</h3>
-        <table>
-          <thead><tr><th>Function</th><th>Input</th><th>Output</th><th>Purpose</th></tr></thead>
-          <tbody>
-            <tr><td><code>build_from_chat_response(chat_response, user_role)</code></td><td>Chat response and role</td><td>Audit dictionary</td><td>Main audit builder.</td></tr>
-            <tr><td><code>_non_sql_audit()</code></td><td>Chat response and role</td><td>Audit dictionary</td><td>Audit for metadata-only or clarification responses.</td></tr>
-            <tr><td><code>_summary()</code>, <code>_table_evidence()</code>, <code>_lineage_evidence()</code>, <code>_access_evidence()</code></td><td>Plan and metadata inputs</td><td>Evidence dictionaries</td><td>Builds audit evidence sections.</td></tr>
-          </tbody>
-        </table>
-        <h3>Export, feedback, and curation</h3>
-        <table>
-          <thead><tr><th>Service</th><th>Main functions</th><th>Input</th><th>Output</th><th>Purpose</th></tr></thead>
-          <tbody>
-            <tr><td><code>ExportService</code></td><td><code>create_export</code>, <code>get_export</code>, <code>list_exports</code></td><td>Chat response, export format, title</td><td>Export record/content</td><td>Creates HTML/CSV/JSON snapshots.</td></tr>
-            <tr><td><code>FeedbackService</code></td><td><code>create_feedback</code>, <code>list_feedback</code>, <code>quality_summary</code></td><td>Turn id, rating, reason</td><td>Feedback record or summary</td><td>Stores thumbs up/down and quality metrics.</td></tr>
-            <tr><td><code>CurationService</code></td><td><code>upsert_business_term</code>, <code>upsert_metric</code>, <code>upsert_dimension</code>, <code>upsert_synonym</code></td><td>Admin curation payload</td><td>Curation event</td><td>Validates and updates governed metadata.</td></tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section id="schemas">
-        <h2>16. Schema Files</h2>
-        <p>Schema files in <code>backend/app/schemas/</code> define API request and response shapes. They do not contain business logic.</p>
-        <table>
-          <thead><tr><th>File</th><th>Main classes</th><th>Beginner explanation</th></tr></thead>
-          <tbody>
-            <tr><td><code>chat.py</code></td><td><code>ChatRequest</code>, <code>ChatResponse</code></td><td>Main chatbot input/output.</td></tr>
-            <tr><td><code>sql.py</code></td><td><code>SqlGenerationRequest</code>, <code>SqlGenerationResponse</code></td><td>SQL generation endpoint shapes.</td></tr>
-            <tr><td><code>execution.py</code></td><td><code>QueryExecutionRequest</code>, <code>QueryExecutionResponse</code></td><td>Query execution endpoint shapes.</td></tr>
-            <tr><td><code>answer.py</code></td><td><code>AnalyticalAnswerRequest</code>, <code>AnalyticalAnswerResponse</code></td><td>Answer generation endpoint shapes.</td></tr>
-            <tr><td><code>chart.py</code></td><td><code>ChartGenerationRequest</code>, <code>ChartGenerationResponse</code></td><td>Chart endpoint shapes.</td></tr>
-            <tr><td><code>intent.py</code></td><td><code>IntentClassificationRequest</code>, <code>IntentClassificationResponse</code></td><td>Intent classifier endpoint shapes.</td></tr>
-            <tr><td><code>semantic.py</code></td><td><code>SemanticResolutionRequest</code>, <code>SemanticResolutionResponse</code></td><td>Semantic resolver endpoint shapes.</td></tr>
-            <tr><td><code>conversation.py</code></td><td><code>ConversationSummary</code>, <code>ConversationTurn</code>, <code>ConversationListResponse</code>, <code>ConversationDetailResponse</code></td><td>Conversation history shapes.</td></tr>
-            <tr><td><code>governance.py</code></td><td><code>GovernanceAuditRequest</code>, <code>GovernanceAuditResponse</code></td><td>Governance audit endpoint shapes.</td></tr>
-            <tr><td><code>export.py</code></td><td><code>ExportCreateRequest</code>, <code>ExportRecord</code>, <code>ExportListResponse</code></td><td>Export endpoint shapes.</td></tr>
-            <tr><td><code>feedback.py</code></td><td><code>FeedbackCreateRequest</code>, <code>FeedbackRecord</code>, <code>QualitySummaryResponse</code></td><td>Feedback endpoint shapes.</td></tr>
-            <tr><td><code>curation.py</code></td><td>Curation request and event models</td><td>Admin curation endpoint shapes.</td></tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section id="synthetic-data">
-        <h2>17. Synthetic Data Functions</h2>
-        <p><code>backend/app/synthetic_data/generate.py</code> creates the commercial banking DuckDB file.</p>
-        <table>
-          <thead><tr><th>Function/Class</th><th>Input</th><th>Output</th><th>Purpose</th></tr></thead>
-          <tbody>
-            <tr><td><code>CustomerProfile</code>, <code>AccountProfile</code>, <code>LoanProfile</code></td><td>Field values</td><td>Data objects</td><td>Temporary Python records used while generating data.</td></tr>
-            <tr><td><code>weighted_choice()</code>, <code>random_date()</code>, <code>iter_dates()</code>, <code>iter_month_ends()</code></td><td>Random generator/date ranges</td><td>Selected values or date lists</td><td>Utility functions for realistic data generation.</td></tr>
-            <tr><td><code>create_schema(conn)</code></td><td>DuckDB connection</td><td>None</td><td>Creates business data tables.</td></tr>
-            <tr><td><code>build_dim_date()</code></td><td>None</td><td>Date rows</td><td>Builds calendar dimension.</td></tr>
-            <tr><td><code>build_customers()</code>, <code>build_accounts()</code>, <code>build_loans()</code></td><td>Random generator and parent records</td><td>Lists of profile objects</td><td>Creates customer, deposit account, and loan records.</td></tr>
-            <tr><td><code>build_deposit_balances()</code>, <code>build_deposit_transactions()</code></td><td>Random generator and accounts</td><td>Fact rows</td><td>Creates deposit fact data.</td></tr>
-            <tr><td><code>build_loan_balances()</code>, <code>build_loan_payments()</code></td><td>Random generator and loans</td><td>Fact rows</td><td>Creates loan fact data.</td></tr>
-            <tr><td><code>build_credit_risk_snapshots()</code>, <code>build_relationship_profitability()</code></td><td>Random generator and business objects</td><td>Fact rows</td><td>Creates risk and profitability facts.</td></tr>
-            <tr><td><code>insert_rows()</code></td><td>Connection, table name, rows</td><td>None</td><td>Bulk inserts rows into DuckDB.</td></tr>
-            <tr><td><code>write_generation_summary()</code></td><td>Connection and seed</td><td>Summary dictionary</td><td>Stores row counts after generation.</td></tr>
-            <tr><td><code>generate_database(output_path, seed, replace)</code></td><td>Output path, random seed, replace flag</td><td>Summary dictionary</td><td>Main function that creates the database.</td></tr>
-            <tr><td><code>parse_args()</code>, <code>main()</code></td><td>Command-line args</td><td>None</td><td>Allows running <code>python3 -m backend.app.synthetic_data.generate</code>.</td></tr>
-          </tbody>
-        </table>
-        <p><code>metadata_seed.py</code> creates governed metadata tables and inserts terms, metrics, dimensions, joins, lineage, synonyms, and access policies.</p>
-      </section>
-
-      <section id="common-debugging">
-        <h2>18. How to Debug as a Beginner</h2>
-        <div class="grid">
-          <div class="card">
-            <h3>If the frontend says offline</h3>
-            <p>Check backend is running at <code>http://127.0.0.1:8000/health</code>.</p>
-          </div>
-          <div class="card">
-            <h3>If no database exists</h3>
-            <p>Run <code>python3 -m backend.app.synthetic_data.generate</code>.</p>
-          </div>
-          <div class="card">
-            <h3>If Bedrock is not used</h3>
-            <p>Check <code>BANKING_ASSISTANT_BEDROCK_ENABLED=true</code>, region, model id, and credentials. Look at <code>llm_trace</code>.</p>
-          </div>
-          <div class="card">
-            <h3>If SQL is blocked</h3>
-            <p>Look at <code>sql_validation.errors</code>, <code>warnings</code>, and <code>audit_report</code>.</p>
-          </div>
-        </div>
-        <pre><code>source .venv/bin/activate
-python3 -m compileall backend
-node --check frontend/assets/app.js
-python3 -m pytest backend/app/tests</code></pre>
-      </section>
-
-      <section id="practice">
-        <h2>19. Practice Exercises</h2>
+        <h3>New Conversation behavior</h3>
+        <p>When the user clicks New Conversation:</p>
         <ol>
-          <li>Open <code>backend/app/main.py</code>. Find where <code>chat_router</code> is included.</li>
-          <li>Open <code>backend/app/api/chat.py</code>. Find where <code>llm_governed_assistant_graph.invoke()</code> is called.</li>
-          <li>Open <code>backend/app/orchestration/llm_graph.py</code>. Follow <code>invoke()</code> to <code>_memory()</code>, <code>_retrieve()</code>, and <code>_interpret()</code>.</li>
-          <li>Search for <code>allow_sql</code>. Notice where SQL is allowed or blocked.</li>
-          <li>Open <code>backend/app/sql/validator.py</code>. Find where actual SQL references are compared against allowed columns.</li>
-          <li>Run a question in the UI, then call <code>GET /chat/conversations</code> to see persisted chat history.</li>
+          <li>The input is temporarily disabled.</li>
+          <li>The frontend clears <code>sessionStorage</code> conversation id and recent conversations.</li>
+          <li>The chat panel returns to the welcome state.</li>
+          <li>The frontend calls <code>POST /chat/session/reset</code>.</li>
+          <li>The backend clears local and Redis cache.</li>
+          <li>The input is re-enabled.</li>
         </ol>
       </section>
-    </main>
-  </body>
+
+      <section id="modules">
+        <h2>14. Module and Function Map</h2>
+        <table>
+          <tr><th>Module</th><th>Main responsibility</th><th>Start by reading</th></tr>
+          <tr><td><code>backend/app/main.py</code></td><td>Creates FastAPI app and registers routers.</td><td><code>app.include_router(...)</code></td></tr>
+          <tr><td><code>backend/app/api/chat.py</code></td><td>Main chat endpoint and session reset endpoint.</td><td><code>chat_message()</code>, <code>reset_chat_session()</code></td></tr>
+          <tr><td><code>backend/app/orchestration/llm_graph.py</code></td><td>Controls full LLM-governed assistant flow.</td><td><code>invoke()</code>, <code>_interpret()</code>, <code>_analytics()</code></td></tr>
+          <tr><td><code>backend/app/retrieval/metadata.py</code></td><td>Retrieves metadata context for the LLM.</td><td><code>retrieve()</code></td></tr>
+          <tr><td><code>backend/app/semantic/resolver.py</code></td><td>Resolves governed metric/dimension/filter/join plan.</td><td><code>resolve()</code></td></tr>
+          <tr><td><code>backend/app/sql/service.py</code></td><td>Coordinates semantic resolution, SQL generation, validation.</td><td><code>generate_from_message()</code></td></tr>
+          <tr><td><code>backend/app/sql/generator.py</code></td><td>Builds SQL text from a governed plan.</td><td><code>generate()</code></td></tr>
+          <tr><td><code>backend/app/sql/validator.py</code></td><td>Validates generated SQL against plan and access policy.</td><td><code>validate()</code></td></tr>
+          <tr><td><code>backend/app/execution/service.py</code></td><td>Runs validated SQL and returns result table.</td><td><code>execute_sql_result()</code></td></tr>
+          <tr><td><code>backend/app/answer/service.py</code></td><td>Creates final business answer and key points.</td><td><code>answer_from_execution()</code></td></tr>
+          <tr><td><code>backend/app/chart/service.py</code></td><td>Creates chart specification.</td><td><code>chart_from_answer_result()</code></td></tr>
+          <tr><td><code>backend/app/cache/service.py</code></td><td>Stores and clears resolved-plan response cache.</td><td><code>build_resolved_plan_key()</code>, <code>clear()</code></td></tr>
+          <tr><td><code>backend/app/conversation/service.py</code></td><td>Persists conversations and turns in DuckDB.</td><td><code>record_turn()</code>, <code>get_conversation()</code></td></tr>
+          <tr><td><code>backend/app/feedback/service.py</code></td><td>Stores thumbs up/down feedback and quality summaries.</td><td><code>create_feedback()</code>, <code>quality_summary()</code></td></tr>
+        </table>
+      </section>
+
+      <section id="api">
+        <h2>15. API Endpoints</h2>
+        <table>
+          <tr><th>Endpoint</th><th>Method</th><th>Purpose</th></tr>
+          <tr><td><code>/</code></td><td>GET</td><td>Serves frontend chat UI.</td></tr>
+          <tr><td><code>/health</code></td><td>GET</td><td>Backend and database health.</td></tr>
+          <tr><td><code>/data/profile</code></td><td>GET</td><td>Database path and table counts.</td></tr>
+          <tr><td><code>/chat/message</code></td><td>POST</td><td>Main chatbot endpoint.</td></tr>
+          <tr><td><code>/chat/session/reset</code></td><td>POST</td><td>Clears backend cache for a new conversation.</td></tr>
+          <tr><td><code>/chat/conversations</code></td><td>GET</td><td>Lists saved conversations.</td></tr>
+          <tr><td><code>/metadata/search</code></td><td>GET</td><td>Searches governed metadata.</td></tr>
+          <tr><td><code>/metrics</code></td><td>GET</td><td>Lists governed metrics.</td></tr>
+          <tr><td><code>/dimensions</code></td><td>GET</td><td>Lists governed dimensions.</td></tr>
+          <tr><td><code>/semantic/resolve</code></td><td>POST</td><td>Resolves message to semantic plan.</td></tr>
+          <tr><td><code>/sql/generate</code></td><td>POST</td><td>Generates governed SQL.</td></tr>
+          <tr><td><code>/query/execute</code></td><td>POST</td><td>Executes generated SQL.</td></tr>
+          <tr><td><code>/answer/generate</code></td><td>POST</td><td>Generates answer from result table.</td></tr>
+          <tr><td><code>/chart/generate</code></td><td>POST</td><td>Generates chart spec.</td></tr>
+          <tr><td><code>/feedback</code></td><td>POST</td><td>Stores user feedback.</td></tr>
+          <tr><td><code>/feedback/quality-summary</code></td><td>GET</td><td>Feedback quality monitoring summary.</td></tr>
+        </table>
+      </section>
+
+      <section id="tests">
+        <h2>16. Tests</h2>
+        <p>Tests live in <code>backend/app/tests</code>. Run them with:</p>
+        <pre><code>source .venv/bin/activate
+python -m pytest backend/app/tests -q</code></pre>
+        <h3>Important test files</h3>
+        <table>
+          <tr><th>Test file</th><th>What it protects</th></tr>
+          <tr><td><code>test_orchestration_graph.py</code></td><td>Main chatbot, clarification, cache, LLM guardrails.</td></tr>
+          <tr><td><code>test_semantic_resolver.py</code></td><td>Metric/dimension resolution and ambiguity behavior.</td></tr>
+          <tr><td><code>test_sql_generation.py</code></td><td>SQL generation and validation.</td></tr>
+          <tr><td><code>test_query_execution.py</code></td><td>DuckDB execution and truncation behavior.</td></tr>
+          <tr><td><code>test_frontend_static.py</code></td><td>Frontend asset serving and session reset wiring.</td></tr>
+          <tr><td><code>test_feedback_quality.py</code></td><td>Feedback and quality summary logic.</td></tr>
+          <tr><td><code>test_metadata_api.py</code></td><td>Metadata endpoints and search behavior.</td></tr>
+        </table>
+        <h3>Recent critical regressions covered</h3>
+        <ul>
+          <li>LLM-selected Product Segment cannot bypass clarification for <code>can you give balance by segment</code>.</li>
+          <li>Changing Product Segment to Customer Segment replaces the prior choice instead of grouping by both.</li>
+          <li>Clarification responses are not cached.</li>
+          <li>New Conversation clears backend cache.</li>
+          <li>Resolved cache keys do not mix different metric/dimension plans.</li>
+        </ul>
+      </section>
+
+      <section id="debug">
+        <h2>17. Debugging Checklist</h2>
+        <h3>If the bot skips clarification</h3>
+        <ol>
+          <li>Check response fields: <code>requires_clarification</code>, <code>clarification_options</code>, <code>pending_task</code>.</li>
+          <li>Check <code>graph_trace</code>. It should show <code>preflight_clarification</code> or <code>clarification</code> for ambiguous questions.</li>
+          <li>Check <code>semantic_result.ambiguities</code>.</li>
+          <li>Review <code>_preflight_clarification()</code> in <code>llm_graph.py</code>.</li>
+        </ol>
+        <h3>If cache seems wrong</h3>
+        <ol>
+          <li>Click New Conversation or call <code>POST /chat/session/reset</code>.</li>
+          <li>Check <code>llm_trace.cache_status</code>. A fresh ambiguous question should not be a cache hit.</li>
+          <li>Verify final answers are cached by resolved plan, not vague raw prompt.</li>
+          <li>Review <code>build_resolved_plan_key()</code> in <code>cache/service.py</code>.</li>
+        </ol>
+        <h3>If SQL uses wrong columns</h3>
+        <ol>
+          <li>Inspect <code>semantic_result.governed_query_plan</code>.</li>
+          <li>Check resolved metric ID and dimension IDs.</li>
+          <li>Review generated SQL and <code>sql_validation</code>.</li>
+          <li>Check metadata mappings in <code>metadata_metric</code> and <code>metadata_dimension</code>.</li>
+        </ol>
+      </section>
+
+      <section id="glossary">
+        <h2>18. Glossary</h2>
+        <table>
+          <tr><th>Term</th><th>Meaning in this project</th></tr>
+          <tr><td>Governed metric</td><td>A certified business measure in <code>metadata_metric</code> with calculation, base table, required columns, and certification flag.</td></tr>
+          <tr><td>Dimension</td><td>A business grouping attribute, such as Customer Segment, Product Segment, Market, or Year Month.</td></tr>
+          <tr><td>Pending task</td><td>Conversation state that remembers an unresolved analytical request while the bot asks follow-up questions.</td></tr>
+          <tr><td>Resolved plan</td><td>The complete governed semantic plan: metric, dimensions, joins, filters, assumptions.</td></tr>
+          <tr><td>Clarification</td><td>A guided follow-up question shown when the bot needs the user to choose a governed metric, dimension, or safe replacement.</td></tr>
+          <tr><td>Lineage</td><td>Metadata showing where data came from and how it was transformed.</td></tr>
+          <tr><td>Access policy</td><td>Governance record describing what roles can use which assets and whether masking applies.</td></tr>
+          <tr><td>Resolved-plan cache</td><td>Safe cache key built only after metric, dimensions, filters, chart settings, SQL, and metadata version are known.</td></tr>
+        </table>
+        <div class="callout">
+          Suggested beginner reading order: <code>main.py</code>, <code>api/chat.py</code>,
+          <code>orchestration/llm_graph.py</code>, <code>semantic/resolver.py</code>,
+          <code>sql/service.py</code>, <code>sql/generator.py</code>, <code>sql/validator.py</code>,
+          then <code>frontend/assets/app.js</code>.
+        </div>
+      </section>
+    </div>
+  </main>
+</body>
 </html>

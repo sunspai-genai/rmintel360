@@ -307,6 +307,25 @@ class CatalogService:
             ],
         )
 
+    def get_lineage(self, lineage_id: str) -> dict[str, Any] | None:
+        rows = fetch_all(
+            """
+            SELECT
+                lineage_id,
+                source_system,
+                source_object,
+                target_table,
+                target_column,
+                transformation,
+                refresh_frequency,
+                data_owner
+            FROM metadata_lineage
+            WHERE lower(lineage_id) = lower(?)
+            """,
+            [lineage_id],
+        )
+        return rows[0] if rows else None
+
     def list_access_policies(self, role_name: str | None = None) -> list[dict[str, Any]]:
         sql = """
             SELECT

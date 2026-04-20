@@ -150,6 +150,12 @@ class GovernedChartGenerator:
             x_column=x_column or "",
             dimensions=dimensions,
         )
+        series_column = self._series_column(
+            columns=columns,
+            metric_column=metric_column,
+            x_column=x_column,
+            dimensions=dimensions,
+        )
 
         x_values = [row[x_column] for row in rows] if x_column else ["Overall" for _ in rows]
         y_values = [row[metric_column] for row in rows]
@@ -159,24 +165,27 @@ class GovernedChartGenerator:
 
         if resolved_chart_type == "line":
             figure = go.Figure(
-                data=[
-                    go.Scatter(
-                        x=x_values,
-                        y=y_values,
-                        mode="lines+markers",
-                        name=metric["business_name"],
-                    )
-                ]
+                data=self._line_traces(
+                    rows,
+                    x_column,
+                    metric_column,
+                    series_column,
+                    metric["business_name"],
+                    x_values,
+                    y_values,
+                )
             )
         else:
             figure = go.Figure(
-                data=[
-                    go.Bar(
-                        x=x_values,
-                        y=y_values,
-                        name=metric["business_name"],
-                    )
-                ]
+                data=self._bar_traces(
+                    rows,
+                    x_column,
+                    metric_column,
+                    series_column,
+                    metric["business_name"],
+                    x_values,
+                    y_values,
+                )
             )
 
         figure.update_layout(
@@ -192,6 +201,7 @@ class GovernedChartGenerator:
             "title": title,
             "x_axis": {"column": x_axis_column, "label": x_axis_label},
             "y_axis": {"column": metric_column, "label": metric["business_name"]},
+            "series": {"column": series_column, "label": self._axis_label(series_column)} if series_column else None,
             "plotly_json": figure.to_plotly_json(),
             "chart_plan": {
                 "provider": chart_plan.get("llm_provider"),
@@ -320,6 +330,86 @@ class GovernedChartGenerator:
             if column != metric_column:
                 return column
         return None
+
+    def _series_column(
+        self,
+        columns: list[str],
+        metric_column: str,
+        x_column: str | None,
+        dimensions: list[dict[str, Any]],
+    ) -> str | None:
+        for dimension in dimensions:
+            dimension_column = self._output_name(dimension["id"])
+            if dimension_column in columns and dimension_column not in {metric_column, x_column}:
+                return dimension_column
+        return None
+
+    def _line_traces(
+        self,
+        rows: list[dict[str, Any]],
+        x_column: str | None,
+        metric_column: str,
+        series_column: str | None,
+        metric_name: str,
+        x_values: list[Any],
+        y_values: list[Any],
+    ) -> list[go.Scatter]:
+        if not series_column or not x_column:
+            return [
+                go.Scatter(
+                    x=x_values,
+                    y=y_values,
+                    mode="lines+markers",
+                    name=metric_name,
+                )
+            ]
+        return [
+            go.Scatter(
+                x=[row[x_column] for row in rows if row.get(series_column) == series_value],
+                y=[row[metric_column] for row in rows if row.get(series_column) == series_value],
+                mode="lines+markers",
+                name=str(series_value),
+            )
+            for series_value in self._series_values(rows=rows, series_column=series_column)
+        ]
+
+    def _bar_traces(
+        self,
+        rows: list[dict[str, Any]],
+        x_column: str | None,
+        metric_column: str,
+        series_column: str | None,
+        metric_name: str,
+        x_values: list[Any],
+        y_values: list[Any],
+    ) -> list[go.Bar]:
+        if not series_column or not x_column:
+            return [
+                go.Bar(
+                    x=x_values,
+                    y=y_values,
+                    name=metric_name,
+                )
+            ]
+        return [
+            go.Bar(
+                x=[row[x_column] for row in rows if row.get(series_column) == series_value],
+                y=[row[metric_column] for row in rows if row.get(series_column) == series_value],
+                name=str(series_value),
+            )
+            for series_value in self._series_values(rows=rows, series_column=series_column)
+        ]
+
+    def _series_values(self, rows: list[dict[str, Any]], series_column: str) -> list[Any]:
+        values = []
+        seen = set()
+        for row in rows:
+            value = row.get(series_column)
+            if value in seen:
+                continue
+            seen.add(value)
+            values.append(value)
+        return values
 
     def _validated_x_column(
         self,

@@ -98,6 +98,21 @@ def test_chart_planner_falls_back_when_llm_selects_invalid_axes(monkeypatch) -> 
     assert chart["y_axis"]["column"] == "average_deposit_ledger_balance"
 
 
+def test_chart_generation_uses_second_dimension_as_series() -> None:
+    result = governed_chart_generator.chart_from_message(
+        message="Graph average deposit ledger balance by product segment and market.",
+        user_role="technical_user",
+        limit=25,
+    ).to_dict()
+
+    chart = result["chart_spec"]
+    assert result["status"] == ChartStatus.GENERATED
+    assert chart["x_axis"]["column"] == "product_segment"
+    assert chart["y_axis"]["column"] == "average_deposit_ledger_balance"
+    assert chart["series"]["column"] == "market"
+    assert len(chart["plotly_json"]["data"]) > 1
+
+
 def test_chart_generate_api_contract() -> None:
     response = client.post(
         "/chart/generate",
